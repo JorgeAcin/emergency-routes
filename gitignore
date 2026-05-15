@@ -1,0 +1,63 @@
+# ========================
+# Confidential / Private Data
+# ========================
+Data/Ambulancias.csv
+Data/HOSPITALES y CENTRO SALUD.csv
+Data/AED*
+Data/intensidad_total_23-25.csv
+
+# ========================
+# API Keys & Secrets
+# ========================
+.env
+*.env.local
+*.env.production
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# IDE
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ========================
+# Model weights (too large for GitHub)
+# ========================
+*.pt
+*.pth
+*.bin
+*.h5
+*.onnx
+models/
+
+# ========================
+# Audio files
+# ========================
+*.m4a
+*.mp4
+*.wav
