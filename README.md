@@ -220,12 +220,12 @@ emergency-routes/
 
 | Name | Contributions |
 |------|---------------|
-| **Jorge Acín Zurita** | Route optimization engine, ORS integration, dispatch algorithm (Haversine pre-filter, ambulance selection), Multi-Casualty Incident (MCI) mode and MANV protocol implementation |
-| **Pablo Arnau Tomás** | Audio triage pipeline (Whisper transcription + mBERT classification), model fine-tuning, hyperparameter search, Wikipedia medical context module |
-| **Nacho Castilla Llorca** | Geospatial data processing (QGIS), construction of road restriction layers (Fallas, Marathon, DANA, PATRICOVA, Semana Marinera, San Vicente, Ofrenda), coordinate reprojection (UTM ↔ WGS84) |
-| **Pablo Huguet Chordi** | Cloud deployment (Netlify, Firebase Firestore, Hugging Face Spaces), real-time communication between portals, citizen and dispatch portal frontend development |
-| **David Llácer Córdoba** | Data collection and cleaning (hospitals, ambulances, traffic intensity, AEMET, CHJ hydrographic data), exploratory analysis, synthetic emergency call dataset generation |
-| **Óscar Muñoz García** | Project report and documentation (LaTeX), results evaluation and visualization, system testing and scenario simulations, SDG alignment analysis |
+| **Jorge Acín Zurita** | Data collection, audio triage pipeline (Whisper transcription + mBERT classification), model fine-tuning, hyperparameter search, Wikipedia medical context module, SDG alignment analysis |
+| **Pablo Arnau Tomás** | Data collection and cleaning (hospitals, ambulances, traffic intensity, AEMET, CHJ hydrographic data), exploratory analysis, synthetic emergency call dataset generation, project report and documentation (LaTeX), results evaluation and visualization |
+| **Nacho Castilla Llorca** | Cloud deployment (Netlify, Firebase Firestore, Hugging Face Spaces), real-time communication between portals, citizen and dispatch portal frontend development, route optimization engine, ORS integration, dispatch algorithm (Haversine pre-filter, ambulance selection) |
+| **Pablo Huguet Chordi** | Data collection, project report and documentation (LaTeX), results evaluation and visualization, system testing and scenario simulations, SDG alignment analysis |
+| **David Llácer Córdoba** | Data collection, geospatial data processing (QGIS), construction of road restriction layers (Fallas, Marathon, DANA, PATRICOVA, Semana Marinera, San Vicente, Ofrenda), coordinate reprojection (UTM ↔ WGS84) |
+| **Óscar Muñoz García** | Data collection, audio triage pipeline (Whisper transcription + mBERT classification), model fine-tuning, hyperparameter search, Wikipedia medical context module, SDG alignment analysis, synthetic emergency call dataset generation |
 
 > **Note**: All team members contributed to the overall project design, discussion of results, and iterative improvement across modules.
 
