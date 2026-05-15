@@ -5,7 +5,7 @@
 > An integrated AI-based decision-support system for optimizing emergency medical services in the province of Valencia, developed in collaboration with the Generalitat Valenciana.
 
 <p align="center">
-  <img src="<img width="1378" height="730" alt="Captura de pantalla 2026-05-15 202013" src="https://github.com/user-attachments/assets/a2e65b3e-5013-4bb4-b271-889dc7f629ba" />" width="800">
+  <img src="[Pega-aqui-el-enlace-que-te-genera-github-de-la-foto-del-mapa](https://github.com/user-attachments/assets/cf9cca32-a852-440d-a47e-98c672cd0283)" width="800">
 </p>
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
