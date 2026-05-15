@@ -147,10 +147,6 @@ The system proactively routes around all 781 closure polygons. Without it, an am
 
 The system is fully cloud-based and accessible from any device without local installation:
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/c37909b2-4f25-4941-b989-a48d312f8b26" width="350" alt="App móvil de reporte de emergencias" />
-</p>
-
 | Component | Service | URL |
 |-----------|---------|-----|
 | Citizen Portal | Netlify | Hosted static HTML |
@@ -183,6 +179,10 @@ Open `Code/audio_clasificacion_emergencias.ipynb` in Jupyter or Google Colab (GP
 ### Running the Dispatch Portal Locally
 
 Open `Code/mockup/emergencias_global.html` in a browser. You will need to enter your ORS API key in the interface. Firebase must be configured with your own project credentials.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c37909b2-4f25-4941-b989-a48d312f8b26" width="350" alt="App móvil de reporte de emergencias" />
+</p>
 
 ## Project Structure
 
