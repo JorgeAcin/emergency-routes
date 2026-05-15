@@ -147,6 +147,10 @@ The system proactively routes around all 781 closure polygons. Without it, an am
 
 The system is fully cloud-based and accessible from any device without local installation:
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c37909b2-4f25-4941-b989-a48d312f8b26" width="350" alt="App móvil de reporte de emergencias" />
+</p>
+
 | Component | Service | URL |
 |-----------|---------|-----|
 | Citizen Portal | Netlify | Hosted static HTML |
