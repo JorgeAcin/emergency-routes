@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Emergencias — Valencia</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<style>
+:root {
+  --rojo:#E8001D; --rojo-oscuro:#A80015;
+  --negro:#0A0A0A; --gris-oscuro:#141414; --gris-medio:#1E1E1E;
+  --gris-panel:#252525; --gris-borde:#333;
+  --texto:#F0F0F0; --texto-dim:#888;
+  --verde:#00E676; --naranja:#FF9800; --azul:#2196F3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--negro);color:var(--texto);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* HEADER */
+header{background:var(--gris-oscuro);border-bottom:2px solid var(--rojo);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:30px;height:30px;background:var(--rojo);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo h1{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.logo span{font-family:'Space Mono',monospace;font-size:10px;color:var(--rojo);letter-spacing:.1em}
+.header-right{display:flex;align-items:center;gap:10px}
+.header-status{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--texto-dim)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--verde);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* BOTON FLOTA */
+.btn-flota{background:rgba(232,0,29,.12);border:1px solid rgba(232,0,29,.4);color:var(--texto);font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;padding:6px 12px;border-radius:5px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-flota:hover{background:rgba(232,0,29,.25);border-color:var(--rojo)}
+.flota-badge{display:inline-block;background:var(--verde);color:var(--negro);font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;margin-left:5px}
+
+/* LAYOUT */
+.main{flex:1;display:flex;overflow:hidden}
+
+/* SIDEBAR IZQ */
+.sidebar{width:340px;min-width:340px;background:var(--gris-oscuro);border-right:1px solid var(--gris-borde);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--gris-borde);border-radius:2px}
+.sidebar-scroll{padding:12px;display:flex;flex-direction:column;gap:10px}
+
+/* PANEL DERECHO RESULTADOS */
+.panel-right{width:280px;min-width:280px;background:var(--gris-oscuro);border-left:1px solid var(--gris-borde);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .3s}
+.panel-right::-webkit-scrollbar{width:3px}
+.panel-right::-webkit-scrollbar-thumb{background:var(--gris-borde);border-radius:2px}
+.panel-right-scroll{padding:12px;display:flex;flex-direction:column;gap:10px}
+.panel-right-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:var(--texto-dim)}
+.panel-right-empty .empty-icon{font-size:40px;opacity:.3}
+.panel-right-empty p{font-size:11px;line-height:1.6;font-family:'Space Mono',monospace}
+
+/* SECTIONS */
+.section{background:var(--gris-panel);border:1px solid var(--gris-borde);border-radius:8px;overflow:hidden}
+.section-header{padding:8px 12px;background:rgba(232,0,29,.07);border-bottom:1px solid var(--gris-borde);display:flex;align-items:center;gap:7px}
+.section-header .num{font-family:'Space Mono',monospace;font-size:9px;background:var(--rojo);color:white;padding:2px 5px;border-radius:3px;font-weight:700}
+.section-header h2{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.section-body{padding:12px;display:flex;flex-direction:column;gap:8px}
+
+/* INPUTS */
+label{display:block;font-size:10px;font-weight:600;color:var(--texto-dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+input[type="text"],input[type="password"],select{width:100%;background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:5px;color:var(--texto);font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 9px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--rojo)}
+
+/* AUTOCOMPLETE */
+.autocomplete-wrap{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--gris-oscuro);border:1px solid var(--gris-borde);border-top:none;border-radius:0 0 6px 6px;z-index:9999;max-height:160px;overflow-y:auto}
+.autocomplete-item{padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);color:var(--texto-dim);transition:background .15s}
+.autocomplete-item:hover,.autocomplete-item.active{background:rgba(232,0,29,.12);color:var(--texto)}
+.autocomplete-item b{color:var(--texto)}
+
+/* URGENCY */
+.urgency-group{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.urgency-btn{background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:5px;color:var(--texto-dim);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:7px 3px;cursor:pointer;transition:all .2s;text-align:center;text-transform:uppercase;letter-spacing:.03em}
+.urgency-btn:hover{border-color:#555;color:var(--texto)}
+.urgency-btn.active[data-u="leve"]{background:rgba(0,230,118,.15);border-color:var(--verde);color:var(--verde)}
+.urgency-btn.active[data-u="media"]{background:rgba(255,152,0,.15);border-color:var(--naranja);color:var(--naranja)}
+.urgency-btn.active[data-u="grave"]{background:rgba(232,0,29,.2);border-color:var(--rojo);color:var(--rojo)}
+
+/* BUTTONS */
+.btn-primary{width:100%;background:var(--rojo);color:white;border:none;border-radius:6px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:10px;cursor:pointer;transition:background .2s,transform .1s}
+.btn-primary:hover{background:var(--rojo-oscuro)}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{background:#444;color:#666;cursor:not-allowed}
+.btn-secondary{background:transparent;border:1px solid var(--gris-borde);color:var(--texto-dim);border-radius:5px;font-family:'DM Sans',sans-serif;font-size:11px;padding:6px 10px;cursor:pointer;transition:all .2s}
+.btn-secondary:hover{border-color:var(--rojo);color:var(--rojo)}
+
+/* CUTS INFO */
+.cuts-info{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--texto-dim)}
+.cuts-badge{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;background:rgba(232,0,29,.2);border:1px solid var(--rojo);color:var(--rojo);padding:2px 6px;border-radius:3px}
+
+/* LOG */
+.log{background:var(--negro);border:1px solid var(--gris-borde);border-radius:5px;padding:8px;font-family:'Space Mono',monospace;font-size:9px;color:var(--texto-dim);max-height:80px;overflow-y:auto;line-height:1.8}
+.log .ok{color:var(--verde)}.log .err{color:var(--rojo)}.log .info{color:var(--azul)}.log .warn{color:var(--naranja)}
+
+/* RESULT CARDS */
+.result-card{background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:6px;padding:9px 10px;display:flex;align-items:center;gap:8px;transition:border-color .2s}
+.result-card.best{border-color:var(--verde)}
+.result-card+.result-card{margin-top:5px}
+.result-icon{font-size:18px;flex-shrink:0}
+.result-info{flex:1;min-width:0}
+.result-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-meta{display:flex;gap:8px;margin-top:2px}
+.result-meta span{font-family:'Space Mono',monospace;font-size:10px;color:var(--texto-dim)}
+.result-meta .highlight{color:var(--verde)}
+.best-badge{font-family:'Space Mono',monospace;font-size:8px;background:var(--verde);color:var(--negro);padding:2px 5px;border-radius:3px;font-weight:700;flex-shrink:0}
+
+/* TIEMPO TOTAL */
+.total-time-box{background:rgba(232,0,29,.1);border:1px solid rgba(232,0,29,.35);border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between}
+.total-time-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-dim);font-weight:600}
+.total-time-value{font-family:'Space Mono',monospace;font-size:28px;font-weight:700;color:var(--rojo)}
+.total-time-value span{font-size:11px;color:var(--texto-dim)}
+
+/* DESGLOSE TIEMPOS */
+.time-breakdown{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.time-row{display:flex;align-items:center;justify-content:space-between;font-size:11px}
+.time-row-label{color:var(--texto-dim);display:flex;align-items:center;gap:5px}
+.time-row-val{font-family:'Space Mono',monospace;font-weight:700}
+
+/* MAP */
+#map{flex:1;background:#0d1117}
+.leaflet-container{background:#0d1117}
+.leaflet-control-zoom a{background:var(--gris-panel)!important;color:var(--texto)!important;border-color:var(--gris-borde)!important}
+.leaflet-bar{border:1px solid var(--gris-borde)!important}
+.info-popup{font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.5;min-width:140px}
+.info-popup b{display:block;margin-bottom:3px}
+
+/* LOADING */
+.map-relative{position:relative;flex:1;display:flex}
+.loading-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(10,10,10,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:12px}
+.spinner{width:34px;height:34px;border:3px solid #333;border-top-color:var(--rojo);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:'Space Mono',monospace;font-size:11px;color:var(--texto-dim);letter-spacing:.07em}
+
+/* MODAL FLOTA */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--gris-oscuro);border:1px solid var(--gris-borde);border-radius:10px;width:100%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{padding:14px 18px;border-bottom:1px solid var(--gris-borde);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-header h2{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.modal-close{background:none;border:none;color:var(--texto-dim);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.modal-close:hover{color:var(--texto);background:var(--gris-borde)}
+.modal-body{flex:1;overflow-y:auto;padding:14px}
+.modal-body::-webkit-scrollbar{width:4px}
+.modal-body::-webkit-scrollbar-thumb{background:var(--gris-borde);border-radius:2px}
+.flota-stats{display:flex;gap:10px;margin-bottom:12px}
+.flota-stat{flex:1;background:var(--gris-panel);border:1px solid var(--gris-borde);border-radius:6px;padding:10px;text-align:center}
+.flota-stat-val{font-family:'Space Mono',monospace;font-size:22px;font-weight:700}
+.flota-stat-val.verde{color:var(--verde)}
+.flota-stat-val.rojo{color:var(--rojo)}
+.flota-stat-val.naranja{color:var(--naranja)}
+.flota-stat-label{font-size:10px;color:var(--texto-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.flota-table{width:100%;border-collapse:collapse;font-size:12px}
+.flota-table th{font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-dim);padding:6px 8px;text-align:left;border-bottom:1px solid var(--gris-borde)}
+.flota-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+.flota-table tr:hover td{background:rgba(255,255,255,.03)}
+.amb-disponible{color:var(--verde);font-weight:700}
+.amb-ocupada{color:var(--rojo);font-weight:700}
+.amb-nodisponible{color:#FFD600;font-weight:700;cursor:pointer}
+.amb-disponible-click{cursor:pointer}
+.amb-disponible-click:hover{background:rgba(0,230,118,.08);border-radius:4px}
+.amb-nodisponible:hover{background:rgba(255,214,0,.08);border-radius:4px}
+.amb-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.amb-status-dot.libre{background:var(--verde)}
+.amb-status-dot.ocupada{background:var(--rojo)}
+.amb-status-dot.nodisponible{background:#FFD600}
+.dispatch-tag{font-family:'Space Mono',monospace;font-size:9px;background:rgba(232,0,29,.2);border:1px solid rgba(232,0,29,.4);color:var(--rojo);padding:2px 5px;border-radius:3px}
+.horario-tag{font-family:'Space Mono',monospace;font-size:9px;padding:2px 5px;border-radius:3px}
+.horario-24{background:rgba(0,230,118,.12);color:var(--verde);border:1px solid rgba(0,230,118,.3)}
+.horario-12{background:rgba(33,150,243,.12);color:var(--azul);border:1px solid rgba(33,150,243,.3)}
+.horario-12n{background:rgba(255,152,0,.12);color:var(--naranja);border:1px solid rgba(255,152,0,.3)}
+
+.hidden{display:none!important}
+
+/* UNIDADES EXTRA */
+.amb-extra{color:#BB86FC;font-weight:700;cursor:pointer}
+.amb-extra:hover{background:rgba(187,134,252,.08);border-radius:4px}
+.amb-status-dot.extra{background:#BB86FC}
+.amb-status-dot.extra-ocupada{background:#E8001D}
+.btn-add-unit{background:rgba(187,134,252,.12);border:1px dashed rgba(187,134,252,.5);color:#BB86FC;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:4px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-add-unit:hover{background:rgba(187,134,252,.22);border-color:#BB86FC}
+.extra-unit-row td{background:rgba(187,134,252,.04)!important}
+
+/* MODAL AÑADIR UNIDAD */
+.modal-sm{background:var(--gris-oscuro);border:1px solid var(--gris-borde);border-radius:10px;width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden}
+.modal-sm .modal-header{padding:12px 16px;border-bottom:1px solid var(--gris-borde);display:flex;align-items:center;justify-content:space-between}
+.modal-sm .modal-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.form-row{display:flex;flex-direction:column;gap:4px}
+.form-row label{font-size:10px;font-weight:600;color:var(--texto-dim);letter-spacing:.06em;text-transform:uppercase}
+.form-row input,.form-row select{width:100%;background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:5px;color:var(--texto);font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 9px;outline:none;transition:border-color .2s}
+.form-row input:focus,.form-row select:focus{border-color:#BB86FC}
+.libera-toggle{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--texto-dim)}
+.libera-toggle input[type=checkbox]{accent-color:#BB86FC;width:14px;height:14px;cursor:pointer}
+.time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn-purple{width:100%;background:#BB86FC;color:#0A0A0A;border:none;border-radius:6px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:10px;cursor:pointer;transition:background .2s}
+.btn-purple:hover{background:#9965e8}
+
+/* SIMULADOR DE TIEMPO */
+.btn-sim{background:rgba(255,152,0,.12);border:1px solid rgba(255,152,0,.4);color:var(--texto);font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;padding:6px 10px;border-radius:5px;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.btn-sim:hover{background:rgba(255,152,0,.25);border-color:var(--naranja)}
+.btn-sim.activo{background:rgba(255,152,0,.25);border-color:var(--naranja);color:var(--naranja)}
+.sim-badge{display:inline-block;background:var(--naranja);color:var(--negro);font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px}
+.sim-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--naranja);letter-spacing:.04em}
+
+/* ── SELECTOR DE MODO (Normal / IMV) ── */
+.modo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--gris-borde);border-radius:6px;overflow:hidden}
+.modo-btn{background:var(--gris-medio);border:none;color:var(--texto-dim);font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:8px 6px;cursor:pointer;transition:all .2s;text-align:center;line-height:1.4}
+.modo-btn:first-child{border-right:1px solid var(--gris-borde)}
+.modo-btn.activo{background:var(--rojo);color:#fff}
+.modo-btn.activo.imv{background:rgba(232,0,29,.85)}
+.modo-normal-wrap{display:flex;align-items:center;justify-content:space-between;background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:6px;padding:8px 12px}
+.modo-normal-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--texto-dim);letter-spacing:.04em}
+.modo-normal-controls{display:flex;align-items:center;gap:8px}
+.modo-normal-count{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--texto);min-width:20px;text-align:center}
+
+/* ── TRIAJE START/SHORT ── */
+.triage-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.triage-item{background:var(--gris-medio);border:1px solid var(--gris-borde);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:border-color .2s}
+.triage-item.rojo{border-color:rgba(232,0,29,.45)}
+.triage-item.amarillo{border-color:rgba(255,214,0,.4)}
+.triage-item.verde{border-color:rgba(0,230,118,.35)}
+.triage-item.negro{border-color:rgba(130,130,130,.4)}
+.triage-label{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.triage-label.rojo{color:#FF4444}.triage-label.amarillo{color:#FFD600}.triage-label.verde{color:var(--verde)}.triage-label.negro{color:#999}
+.triage-controls{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.triage-btn{background:var(--gris-panel);border:1px solid var(--gris-borde);color:var(--texto);width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-family:'Space Mono',monospace}
+.triage-btn:hover{border-color:#555;background:#2e2e2e}
+.triage-count{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;min-width:24px;text-align:center}
+.triage-count.rojo{color:#FF4444}.triage-count.amarillo{color:#FFD600}.triage-count.verde{color:var(--verde)}.triage-count.negro{color:#999}
+.triage-sub{font-size:9px;color:var(--texto-dim);font-style:italic;line-height:1.3}
+/* Panel nivel IMV */
+.nivel-imv-panel{border-radius:6px;padding:8px 11px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--gris-borde);background:rgba(255,255,255,.03);transition:all .3s}
+.nivel-imv-panel.n1{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.05)}
+.nivel-imv-panel.n2{border-color:rgba(255,152,0,.4);background:rgba(255,152,0,.07)}
+.nivel-imv-panel.n3{border-color:rgba(232,0,29,.5);background:rgba(232,0,29,.1)}
+.nivel-imv-total{font-family:'Space Mono',monospace;font-size:11px;color:var(--texto-dim)}
+.nivel-imv-total span{color:var(--texto);font-weight:700;font-size:13px}
+.nivel-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:3px 7px;border-radius:3px;letter-spacing:.06em}
+.nivel-badge.n0{background:rgba(255,255,255,.08);color:var(--texto-dim)}
+.nivel-badge.n1{background:rgba(0,230,118,.2);color:var(--verde);border:1px solid rgba(0,230,118,.4)}
+.nivel-badge.n2{background:rgba(255,152,0,.2);color:var(--naranja);border:1px solid rgba(255,152,0,.5)}
+.nivel-badge.n3{background:rgba(232,0,29,.25);color:var(--rojo);border:1px solid rgba(232,0,29,.6)}
+.triage-info-amb{font-family:'Space Mono',monospace;font-size:9px;color:var(--texto-dim);text-align:right;line-height:1.5}
+.triage-info-amb span{color:var(--naranja);font-weight:700}
+
+/* ── MIC / IA PANEL ── */
+.mic-ia-panel{background:rgba(33,150,243,.06);border:1px solid rgba(33,150,243,.2);border-radius:8px;padding:10px 12px;margin-bottom:2px}
+.mic-ia-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--azul);font-weight:700;margin-bottom:8px}
+.mic-row{display:flex;align-items:center;gap:10px}
+.mic-circle{width:38px;height:38px;border-radius:50%;background:var(--gris-medio);border:1.5px solid var(--gris-borde);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
+.mic-circle:hover{border-color:var(--azul)}
+.mic-circle.grabando{border-color:var(--rojo);background:rgba(232,0,29,.15);animation:micPulse 1s ease-in-out infinite}
+.mic-circle.procesando{border-color:var(--naranja);background:rgba(255,152,0,.1)}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,0,29,.4)}50%{box-shadow:0 0 0 10px rgba(232,0,29,0)}}
+.mic-circle svg{width:18px;height:18px;stroke:var(--texto-dim);fill:none;stroke-width:1.5;stroke-linecap:round}
+.mic-circle.grabando svg{stroke:var(--rojo)}
+.mic-info{flex:1;min-width:0}
+.mic-status-text{font-size:11px;color:var(--texto-dim);line-height:1.4}
+.mic-timer{font-family:'Space Mono',monospace;font-size:10px;color:var(--rojo);display:none}
+.ia-resultado{margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:6px;display:none}
+.ia-resultado-nivel{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.ia-nivel-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px}
+.ia-nivel-badge.grave{background:rgba(232,0,29,.2);color:var(--rojo);border:1px solid rgba(232,0,29,.4)}
+.ia-nivel-badge.media{background:rgba(255,152,0,.2);color:var(--naranja);border:1px solid rgba(255,152,0,.4)}
+.ia-nivel-badge.leve{background:rgba(0,230,118,.2);color:var(--verde);border:1px solid rgba(0,230,118,.4)}
+.ia-confianza{font-size:9px;color:var(--texto-dim);font-family:'Space Mono',monospace}
+.ia-transcripcion-text{font-size:10px;color:var(--texto-dim);font-style:italic;line-height:1.4}
+.ia-aplicado-badge{font-size:9px;color:var(--verde);font-family:'Space Mono',monospace;margin-top:3px}
+
+/* ── AVISOS CIUDADANOS ── */
+.avisos-ciudadanos-panel{background:var(--gris-panel);border:1px solid var(--gris-borde);border-radius:8px;overflow:hidden}
+.avisos-header{padding:8px 12px;background:rgba(33,150,243,.1);border-bottom:1px solid var(--gris-borde);display:flex;align-items:center;justify-content:space-between}
+.avisos-header h2{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.avisos-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;background:var(--rojo);color:#fff;padding:2px 6px;border-radius:3px;display:none}
+.avisos-badge.visible{display:inline}
+.aviso-item{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .15s;position:relative}
+.aviso-item:last-child{border-bottom:none}
+.aviso-item:hover{background:rgba(255,255,255,.03)}
+.aviso-item.nuevo{animation:slideIn .3s ease forwards}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.aviso-item-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.aviso-item-id{font-family:'Space Mono',monospace;font-size:9px;color:var(--texto-dim);font-weight:700}
+.aviso-item-hora{font-family:'Space Mono',monospace;font-size:9px;color:var(--texto-dim)}
+.aviso-item-nivel{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.aviso-nivel-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.aviso-nivel-dot.grave{background:var(--rojo)}
+.aviso-nivel-dot.media{background:var(--naranja)}
+.aviso-nivel-dot.leve{background:var(--verde)}
+.aviso-item-desc{font-size:10px;color:var(--texto-dim);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-style:italic}
+.aviso-item-coords{font-size:9px;color:var(--azul);margin-top:3px;font-family:'Space Mono',monospace}
+.aviso-item-btn{display:flex;gap:5px;margin-top:6px}
+.btn-cargar-aviso{flex:1;background:rgba(232,0,29,.12);border:1px solid rgba(232,0,29,.3);color:var(--rojo);font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:4px 8px;border-radius:4px;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.btn-cargar-aviso:hover{background:rgba(232,0,29,.25)}
+.btn-descartar-aviso{background:rgba(255,255,255,.05);border:1px solid var(--gris-borde);color:var(--texto-dim);font-family:'Space Mono',monospace;font-size:9px;padding:4px 8px;border-radius:4px;cursor:pointer;transition:all .2s}
+.btn-descartar-aviso:hover{border-color:#555;color:var(--texto)}
+.sin-avisos-ciudadanos{padding:14px 12px;font-size:10px;color:var(--texto-dim);text-align:center;font-family:'Space Mono',monospace;line-height:1.6}
+</style>
+<!-- Firebase compat (no módulos) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "********",
+  authDomain: "emergencias-9ecc9.firebaseapp.com",
+  projectId: "emergencias-9ecc9",
+  storageBucket: "emergencias-9ecc9.firebasestorage.app",
+  messagingSenderId: "1073193430733",
+  appId: "1:1073193430733:web:62961dcfe8e75bba4c0384"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Cola de avisos pendientes hasta que la página esté lista
+window._avisosFirebasePendientes = [];
+
+db.collection("avisos").where("estado", "==", "pendiente")
+  .onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === "added") {
+        const aviso = { id: change.doc.id, ...change.doc.data() };
+        window._avisosFirebasePendientes.push(aviso);
+        if (window.añadirAvisoFirebase) {
+          window.añadirAvisoFirebase(aviso);
+        }
+      }
+    });
+  });
+
+// Actualizar aviso en Firebase
+window._fbActualizarAviso = async (avisoId, datos) => {
+  await db.collection("avisos").doc(avisoId).update(datos);
+};
+
+window._fbListo = true;
+</script>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚑</div>
+    <div>
+      <h1>Sistema de Emergencias</h1>
+      <span>Provincia de Valencia · GIS Dispatch</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="sim-time hidden" id="simClock"></span>
+    <button class="btn-sim" id="btnSim" onclick="toggleSimulador()">
+      ⏩ SIM <span class="sim-badge" id="simBadge" onclick="event.stopPropagation();cambiarVelocidadSim()" title="Click para cambiar velocidad">×10</span>
+    </button>
+    <button class="btn-flota" onclick="abrirFlota()">
+      🚑 FLOTA <span class="flota-badge" id="flotaBadge">—</span>
+    </button>
+    <div class="header-status"><div class="dot"></div>ACTIVO</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- ── SIDEBAR IZQ ── -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+
+      <!-- AVISOS CIUDADANOS (localStorage) -->
+      <div class="avisos-ciudadanos-panel">
+        <div class="avisos-header">
+          <h2>📡 Avisos ciudadanos</h2>
+          <span class="avisos-badge" id="avisosBadge">0</span>
+        </div>
+        <div id="avisosList">
+          <div class="sin-avisos-ciudadanos" id="sinAvisos">Sin avisos pendientes.<br>Se actualizan automáticamente.</div>
+        </div>
+      </div>
+
+      <!-- APIs -->
+      <div class="section">
+        <div class="section-header"><span class="num">CFG</span><h2>APIs</h2></div>
+        <div class="section-body">
+          <div>
+            <label>Google Maps API Key</label>
+            <input type="password" id="gmapsKey" placeholder="••••••••••••••••••••••••" data-real="********"/>
+          </div>
+          <div>
+            <label>OpenRouteService API Key</label>
+            <input type="password" id="orsKey" placeholder="••••••••••••••••••••••••" data-real="********"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cortes -->
+      <div class="section">
+        <div class="section-header"><span class="num">01</span><h2>Cortes de Carretera</h2></div>
+        <div class="section-body">
+          <p style="font-size:11px;color:var(--texto-dim);line-height:1.5">Dibuja líneas en el mapa o sube un CSV con polígonos de corte.</p>
+          <label for="csvCortes" class="btn-secondary" style="display:block;text-align:center;cursor:pointer;padding:7px 10px;border-radius:5px;border:1px solid var(--gris-borde);color:var(--texto-dim);font-size:11px;transition:all .2s" onmouseover="this.style.borderColor='var(--rojo)';this.style.color='var(--rojo)'" onmouseout="this.style.borderColor='var(--gris-borde)';this.style.color='var(--texto-dim)'">
+            📂 Subir CSV de cortes
+          </label>
+          <input type="file" id="csvCortes" accept=".csv" class="hidden" onchange="cargarCSVCortes(this)"/>
+          <div class="cuts-info">
+            <span>Activos:</span>
+            <span class="cuts-badge" id="cutsCount">0</span>
+            <button class="btn-secondary" onclick="clearCuts()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Incidente -->
+      <div class="section" style="border:none">
+        <div class="section-header" style="background:rgba(232,0,29,.13);padding:10px 12px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span class="num">02</span><h2 style="font-size:11px">Ubicación del Incidente</h2>
+          </div>
+          <span style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,68,68,.8);letter-spacing:.05em;font-weight:700" id="modoHeaderLabel">URGENCIA NORMAL</span>
+        </div>
+        <div class="section-body" style="gap:10px;padding:22px 14px">
+
+          <!-- Selector de modo -->
+          <div class="modo-toggle">
+            <button class="modo-btn activo" id="btnModoNormal" onclick="toggleModo(false)">🚑 Urgencia<br>Normal</button>
+            <button class="modo-btn imv" id="btnModoIMV" onclick="toggleModo(true)">🚨 IMV / Múltiples<br>Víctimas</button>
+          </div>
+
+          <!-- Dirección (siempre visible) -->
+          <div>
+            <label style="font-size:11px;margin-bottom:6px">Dirección</label>
+            <div class="autocomplete-wrap">
+              <input type="text" id="direccion" placeholder="Ej: Calle Turia 12, Meliana" autocomplete="off"
+                style="font-size:11px;padding:11px 12px;border:none;background:var(--gris-oscuro)"/>
+              <div class="autocomplete-list hidden" id="autocompleteList" style="font-size:13px"></div>
+            </div>
+          </div>
+          <div id="coordsResult" class="hidden" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--verde);background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.2);border-radius:4px;padding:6px 9px"></div>
+
+          <!-- ── MODO NORMAL: Nivel de Urgencia ── -->
+          <div id="normalUrgenciaWrap">
+            <label style="font-size:10px;color:var(--texto-dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:block">Nivel de Urgencia</label>
+            <div class="urgency-group">
+              <button class="urgency-btn" data-u="leve" onclick="setUrgenciaNormal('leve')">🟢 Leve</button>
+              <button class="urgency-btn" data-u="media" onclick="setUrgenciaNormal('media')">🟡 Medio</button>
+              <button class="urgency-btn active" data-u="grave" onclick="setUrgenciaNormal('grave')">🔴 Grave</button>
+            </div>
+            <p id="urgenciaNormalDesc" style="font-size:10px;color:var(--texto-dim);margin-top:6px;line-height:1.5">Grave → Envía <b style="color:#E8001D">SAMU</b> al incidente.</p>
+          </div>
+
+          <!-- ── MODO IMV: contadores de triaje START/SHORT ── -->
+          <div id="imvWrap" class="hidden">
+            <label style="font-size:10px;margin-bottom:6px">Víctimas por categoría triaje START</label>
+            <div class="triage-grid">
+              <div class="triage-item rojo">
+                <div class="triage-label rojo">🔴 Inmediato</div>
+                <div class="triage-controls">
+                  <button class="triage-btn" onclick="cambiarTriage('rojo',-1)">−</button>
+                  <span class="triage-count rojo" id="tvRojo">0</span>
+                  <button class="triage-btn" onclick="cambiarTriage('rojo',1)">+</button>
+                </div>
+                <div class="triage-sub">Compromiso vital</div>
+              </div>
+              <div class="triage-item amarillo">
+                <div class="triage-label amarillo">🟡 Urgente</div>
+                <div class="triage-controls">
+                  <button class="triage-btn" onclick="cambiarTriage('amarillo',-1)">−</button>
+                  <span class="triage-count amarillo" id="tvAmarillo">0</span>
+                  <button class="triage-btn" onclick="cambiarTriage('amarillo',1)">+</button>
+                </div>
+                <div class="triage-sub">Puede esperar &lt;60 min</div>
+              </div>
+              <div class="triage-item verde">
+                <div class="triage-label verde">🟢 Leve</div>
+                <div class="triage-controls">
+                  <button class="triage-btn" onclick="cambiarTriage('verde',-1)">−</button>
+                  <span class="triage-count verde" id="tvVerde">0</span>
+                  <button class="triage-btn" onclick="cambiarTriage('verde',1)">+</button>
+                </div>
+                <div class="triage-sub">Ambulante / PMA</div>
+              </div>
+              <div class="triage-item negro">
+                <div class="triage-label negro">⚫ Fallecido</div>
+                <div class="triage-controls">
+                  <button class="triage-btn" onclick="cambiarTriage('negro',-1)">−</button>
+                  <span class="triage-count negro" id="tvNegro">0</span>
+                  <button class="triage-btn" onclick="cambiarTriage('negro',1)">+</button>
+                </div>
+                <div class="triage-sub">Sin signos vitales</div>
+              </div>
+            </div>
+
+            <!-- Panel de nivel IMV dinámico -->
+            <div class="nivel-imv-panel n0" id="nivelImvPanel" style="margin-top:7px">
+              <div class="nivel-imv-total">Total: <span id="tvTotal">0</span> víctimas</div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <span class="nivel-badge n0" id="nivelBadge">SIN DATOS</span>
+                <div class="triage-info-amb" id="infoAmbulancias"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Calcular -->
+      <div class="section">
+        <div class="section-header"><span class="num">03</span><h2>Despacho</h2></div>
+        <div class="section-body">
+          <button class="btn-primary" onclick="calcular()" id="btnCalc">🚨 CALCULAR EMERGENCIA</button>
+          <div class="log" id="log"><span class="info">▶ Sistema listo.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── MAPA ── -->
+  <div class="map-relative">
+    <div id="map"></div>
+    <div class="loading-overlay hidden" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">CALCULANDO...</div>
+    </div>
+  </div>
+
+  <!-- ── PANEL DERECHO ── -->
+  <div class="panel-right" id="panelRight">
+    <div class="panel-right-empty" id="panelEmpty">
+      <div class="empty-icon">📡</div>
+      <p>Los resultados del despacho aparecerán aquí</p>
+    </div>
+    <div class="panel-right-scroll hidden" id="panelResults">
+      <!-- Ambulancias -->
+      <div class="section" id="resAmbSection">
+        <div class="section-header"><span class="num">🚑</span><h2>Ambulancias</h2></div>
+        <div class="section-body" id="resAmb"></div>
+      </div>
+      <!-- Hospitales -->
+      <div class="section" id="resHospSection">
+        <div class="section-header"><span class="num">🏥</span><h2>Hospitales</h2></div>
+        <div class="section-body" id="resHosp"></div>
+      </div>
+      <!-- Tiempo total -->
+      <div class="section">
+        <div class="section-header"><span class="num">⏱</span><h2>Tiempos</h2></div>
+        <div class="section-body" style="gap:10px">
+          <div class="time-breakdown" id="timeBreakdown"></div>
+          <div class="total-time-box">
+            <div>
+              <div class="total-time-label">Tiempo Total</div>
+              <div style="font-size:10px;color:var(--texto-dim);margin-top:2px">Amb. + traslado hosp.</div>
+            </div>
+            <div class="total-time-value" id="tiempoTotal">— <span>min</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Nueva emergencia -->
+      <button class="btn-secondary" onclick="resetEmergencia()" style="width:100%;margin-top:4px">↩ Nueva emergencia</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL FLOTA ── -->
+<div class="modal-overlay hidden" id="modalFlota">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🚑 Estado de la Flota</h2>
+      <button class="modal-close" onclick="cerrarFlota()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="flota-stats">
+        <div class="flota-stat"><div class="flota-stat-val verde" id="statLibres">—</div><div class="flota-stat-label">Disponibles</div></div>
+        <div class="flota-stat"><div class="flota-stat-val rojo" id="statOcupadas">—</div><div class="flota-stat-label">Ocupadas</div></div>
+        <div class="flota-stat"><div class="flota-stat-val" style="color:#FFD600" id="statNodisponibles">—</div><div class="flota-stat-label">No disponibles</div></div>
+        <div class="flota-stat"><div class="flota-stat-val" id="statTotal">—</div><div class="flota-stat-label">Total unidades</div></div>
+      </div>
+      <p style="font-size:10px;color:var(--texto-dim);margin-bottom:10px;font-family:'Space Mono',monospace;">💡 Haz clic en <span style="color:var(--verde)">Libre</span> para marcar como <span style="color:#FFD600">No disponible</span>. Usa <span style="color:#BB86FC">+ AÑADIR</span> para incorporar unidades de refuerzo a cualquier base.</p>
+      <table class="flota-table">
+        <thead>
+          <tr>
+            <th>Unidad</th>
+            <th>Horario</th>
+            <th>Unidad 1</th>
+            <th>Unidad 2</th>
+            <th>Despacho activo</th>
+            <th style="text-align:center">Refuerzos</th>
+          </tr>
+        </thead>
+        <tbody id="flotaBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL AÑADIR UNIDAD ── -->
+<div class="modal-overlay hidden" id="modalAddUnit">
+  <div class="modal-sm">
+    <div class="modal-header">
+      <h2 style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase">➕ Añadir Unidad Extra</h2>
+      <button class="modal-close" onclick="cerrarAddUnit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Base de destino</label>
+        <input type="text" id="addUnitBase" readonly style="color:var(--texto-dim);cursor:default"/>
+      </div>
+      <div class="form-row">
+        <label>Nombre / Matrícula de la unidad</label>
+        <input type="text" id="addUnitNombre" placeholder="Ej: A053-3, SVB-Refuerzo…" maxlength="40"/>
+      </div>
+      <div class="form-row">
+        <label>Estado inicial</label>
+        <select id="addUnitEstado">
+          <option value="libre">🟢 Libre</option>
+          <option value="ocupada">🔴 Ocupada (en servicio)</option>
+          <option value="nodisponible">🟡 No disponible</option>
+        </select>
+      </div>
+      <div id="liberaWrap" class="hidden">
+        <div class="libera-toggle" style="margin-bottom:8px">
+          <input type="checkbox" id="addUnitTieneLiberacion" onchange="toggleLiberaInputs()"/>
+          <label for="addUnitTieneLiberacion" style="cursor:pointer;font-size:11px;color:var(--texto);font-weight:500;text-transform:none;letter-spacing:0">Indicar hora estimada de liberación</label>
+        </div>
+        <div class="time-inputs hidden" id="liberaInputs">
+          <div class="form-row">
+            <label>Hora libera</label>
+            <input type="time" id="addUnitHora"/>
+          </div>
+          <div class="form-row">
+            <label>Destino actual</label>
+            <input type="text" id="addUnitDest" placeholder="Ej: H. La Fe…" maxlength="30"/>
+          </div>
+        </div>
+      </div>
+      <button class="btn-purple" onclick="confirmarAddUnit()">➕ AÑADIR UNIDAD</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// DATOS REALES (CSV importados)
+// ══════════════════════════════════════════════════════════════════════════════
+const AMBULANCIAS = [{'Nombre': 'A053 Manises', 'Horario': '24H', 'Longitud': -0.45328259, 'Latitud': 39.48550701, 'Tipo': 'SAMU'}, {'Nombre': 'A032 Alfahuir', 'Horario': '24H', 'Longitud': -0.359118, 'Latitud': 39.492844, 'Tipo': 'SAMU'}, {'Nombre': 'A033 Campanar', 'Horario': '24H', 'Longitud': -0.39027214, 'Latitud': 39.48501349, 'Tipo': 'SAMU'}, {'Nombre': 'A041 General', 'Horario': '24H', 'Longitud': -0.4024617, 'Latitud': 39.46466369, 'Tipo': 'SAMU'}, {'Nombre': 'A055 Silla', 'Horario': '24H', 'Longitud': -0.41074276, 'Latitud': 39.35352087, 'Tipo': 'SAMU'}, {'Nombre': 'A031 Malvarrosa', 'Horario': '12H', 'Longitud': -0.325157, 'Latitud': 39.475005, 'Tipo': 'SAMU'}, {'Nombre': 'A034 Campanar', 'Horario': '12H', 'Longitud': -0.39027214, 'Latitud': 39.48501349, 'Tipo': 'SAMU'}, {'Nombre': 'A052 Paterna', 'Horario': '12H', 'Longitud': -0.45599699, 'Latitud': 39.51268315, 'Tipo': 'SAMU'}, {'Nombre': 'A042 Bulevar', 'Horario': '24H', 'Longitud': -0.37687182, 'Latitud': 39.44265604, 'Tipo': 'SAMU'}, {'Nombre': 'A054 Torrente', 'Horario': '24H', 'Longitud': -0.47506213, 'Latitud': 39.43488836, 'Tipo': 'SAMU'}, {'Nombre': 'A013 Sagunto', 'Horario': '24H', 'Longitud': -0.23195744, 'Latitud': 39.67486024, 'Tipo': 'SAMU'}, {'Nombre': 'A061 Lliria', 'Horario': '24H', 'Longitud': -0.61913967, 'Latitud': 39.64194417, 'Tipo': 'SAMU'}, {'Nombre': 'A071 Requena', 'Horario': '24H', 'Longitud': -1.09692693, 'Latitud': 39.48839307, 'Tipo': 'SAMU'}, {'Nombre': 'A072 Utiel', 'Horario': '12H', 'Longitud': -1.20901108, 'Latitud': 39.56885934, 'Tipo': 'SAMU'}, {'Nombre': 'A062 Buñol', 'Horario': '12H', 'Longitud': -0.78634858, 'Latitud': 39.42481399, 'Tipo': 'SAMU'}, {'Nombre': 'A051 Massamagrell', 'Horario': '12H', 'Longitud': -0.33109188, 'Latitud': 39.5726788, 'Tipo': 'SAMU'}, {'Nombre': 'A082 Alcudia', 'Horario': '24H', 'Longitud': -0.51097155, 'Latitud': 39.19395089, 'Tipo': 'SAMU'}, {'Nombre': 'A081 Sueca', 'Horario': '24H', 'Longitud': -0.30594349, 'Latitud': 39.20366049, 'Tipo': 'SAMU'}, {'Nombre': 'A101 Gandia', 'Horario': '24H', 'Longitud': -0.17012715, 'Latitud': 38.96280885, 'Tipo': 'SAMU'}, {'Nombre': 'A091 Xativa', 'Horario': '24H', 'Longitud': -0.50989866, 'Latitud': 39.00717258, 'Tipo': 'SAMU'}, {'Nombre': 'A92 Ontinyent', 'Horario': '24H', 'Longitud': -0.60350776, 'Latitud': 38.82000804, 'Tipo': 'SAMU'}, {'Nombre': 'A102 Oliva', 'Horario': '24H', 'Longitud': -0.12546301, 'Latitud': 38.92500043, 'Tipo': 'SAMU'}, {'Nombre': 'B036 Arabista', 'Horario': '24H', 'Longitud': -0.36022195, 'Latitud': 39.45693069, 'Tipo': 'SVB'}, {'Nombre': 'B035 Peset', 'Horario': '24H', 'Longitud': -0.39422035, 'Latitud': 39.45359945, 'Tipo': 'SVB'}, {'Nombre': 'B031 Nazaret', 'Horario': '24H', 'Longitud': -0.33138957, 'Latitud': 39.44939111, 'Tipo': 'SVB'}, {'Nombre': 'B032 Alboraya', 'Horario': '24H', 'Longitud': -0.34999359, 'Latitud': 39.49618782, 'Tipo': 'SVB'}, {'Nombre': 'B033 Farnals', 'Horario': '12H', 'Longitud': -0.28417766, 'Latitud': 39.56467015, 'Tipo': 'SVB'}, {'Nombre': 'B034 Campanar', 'Horario': '24H', 'Longitud': -0.39027214, 'Latitud': 39.48501349, 'Tipo': 'SVB'}, {'Nombre': 'B037 Malvarrosa', 'Horario': '24H', 'Longitud': -0.33262685, 'Latitud': 39.4656751, 'Tipo': 'SVB'}, {'Nombre': 'B051 Massamagrell', 'Horario': '24H', 'Longitud': -0.33109188, 'Latitud': 39.5726788, 'Tipo': 'SVB'}, {'Nombre': 'B063 Betera', 'Horario': '24H', 'Longitud': -0.46442986, 'Latitud': 39.59386826, 'Tipo': 'SVB'}, {'Nombre': 'B064 Chelva', 'Horario': '24H', 'Longitud': -0.99511027, 'Latitud': 39.75003719, 'Tipo': 'SVB'}, {'Nombre': 'B065 Gestalgar', 'Horario': '12H', 'Longitud': -0.83614065, 'Latitud': 39.60364278, 'Tipo': 'SVB'}, {'Nombre': 'B066 Eliana', 'Horario': '24H', 'Longitud': -0.53397417, 'Latitud': 39.56320524, 'Tipo': 'SVB'}, {'Nombre': 'B061 Lliria', 'Horario': '24H', 'Longitud': -0.58388472, 'Latitud': 39.63529229, 'Tipo': 'SVB'}, {'Nombre': 'B072 Utiel', 'Horario': '24H', 'Longitud': -1.20901108, 'Latitud': 39.56885934, 'Tipo': 'SVB'}, {'Nombre': 'B062 Buñol', 'Horario': '12H N', 'Longitud': -0.7854259, 'Latitud': 39.42615509, 'Tipo': 'SVB'}, {'Nombre': 'B067 Chiva', 'Horario': '24H', 'Longitud': -0.71219087, 'Latitud': 39.46930647, 'Tipo': 'SVB'}, {'Nombre': 'B073 Ayora', 'Horario': '24H', 'Longitud': -1.05264902, 'Latitud': 39.05606389, 'Tipo': 'SVB'}, {'Nombre': 'B071 Requena', 'Horario': '12H', 'Longitud': -1.09692693, 'Latitud': 39.48839307, 'Tipo': 'SVB'}, {'Nombre': 'B068 Turis', 'Horario': '12H', 'Longitud': -0.71714759, 'Latitud': 39.38825011, 'Tipo': 'SVB'}, {'Nombre': 'B045 Alacuas', 'Horario': '12H', 'Longitud': -0.45777915, 'Latitud': 39.45992315, 'Tipo': 'SVB'}, {'Nombre': 'B041 Godella', 'Horario': '12H', 'Longitud': -0.41625738, 'Latitud': 39.52266097, 'Tipo': 'SVB'}, {'Nombre': 'B043 Quart de Poblet', 'Horario': '24H', 'Longitud': -0.44859154, 'Latitud': 39.48347139, 'Tipo': 'SVB'}, {'Nombre': 'B044 Aldaia', 'Horario': '24H', 'Longitud': -0.4674232, 'Latitud': 39.46642041, 'Tipo': 'SVB'}, {'Nombre': 'B054 Torrente', 'Horario': '24H', 'Longitud': -0.47506213, 'Latitud': 39.4347918, 'Tipo': 'SVB'}, {'Nombre': 'B046 Catarroja', 'Horario': '24H', 'Longitud': -0.405783337, 'Latitud': 39.40782842, 'Tipo': 'SVB'}, {'Nombre': 'B047 Picassent', 'Horario': '24H', 'Longitud': -0.46168327, 'Latitud': 39.36015129, 'Tipo': 'SVB'}, {'Nombre': 'B052 Paterna', 'Horario': '24H', 'Longitud': -0.44267178, 'Latitud': 39.50474381, 'Tipo': 'SVB'}, {'Nombre': 'B042 Mislata', 'Horario': '24H', 'Longitud': -0.42538635, 'Latitud': 39.48021668, 'Tipo': 'SVB'}, {'Nombre': 'B055 Silla', 'Horario': '12H', 'Longitud': -0.41175127, 'Latitud': 39.35803771, 'Tipo': 'SVB'}, {'Nombre': 'B083 Algemesi', 'Horario': '24H', 'Longitud': -0.43760777, 'Latitud': 39.19610739, 'Tipo': 'SVB'}, {'Nombre': 'B084 Carlet', 'Horario': '12H', 'Longitud': -0.52678585, 'Latitud': 39.23157692, 'Tipo': 'SVB'}, {'Nombre': 'B085 Carcaixent', 'Horario': '24H', 'Longitud': -0.45028925, 'Latitud': 39.1240418, 'Tipo': 'SVB'}, {'Nombre': 'B081 Cullera 1', 'Horario': '12H', 'Longitud': -0.25440216, 'Latitud': 39.16206479, 'Tipo': 'SVB'}, {'Nombre': 'B082 Cullera 2', 'Horario': '12H', 'Longitud': -0.25440216, 'Latitud': 39.16206479, 'Tipo': 'SVB'}, {'Nombre': 'B101 Gandia', 'Horario': '24H', 'Longitud': -0.16172647, 'Latitud': 38.99054289, 'Tipo': 'SVB'}, {'Nombre': 'B102 Oliva', 'Horario': '24H', 'Longitud': -0.12546301, 'Latitud': 38.92500043, 'Tipo': 'SVB'}, {'Nombre': 'B103 Tavernes Valldigna', 'Horario': '24H', 'Longitud': -0.2621295, 'Latitud': 39.07164219, 'Tipo': 'SVB'}, {'Nombre': 'B104 Castello de Rugat', 'Horario': '12H', 'Longitud': -0.38921159, 'Latitud': 38.8979411, 'Tipo': 'SVB'}, {'Nombre': 'B056 Monserrat', 'Horario': '24H', 'Longitud': -0.60340496, 'Latitud': 39.35717266, 'Tipo': 'SVB'}, {'Nombre': 'B092 Onteniente', 'Horario': '24H', 'Longitud': -0.59741378, 'Latitud': 38.82103801, 'Tipo': 'SVB'}, {'Nombre': 'B093 Olleria', 'Horario': '12H', 'Longitud': -0.55009961, 'Latitud': 38.91368151, 'Tipo': 'SVB'}, {'Nombre': 'B091 Xativa', 'Horario': '24H', 'Longitud': -0.50989866, 'Latitud': 39.00717258, 'Tipo': 'SVB'}, {'Nombre': 'B094 Navarres', 'Horario': '24H', 'Longitud': -0.69535732, 'Latitud': 39.10137177, 'Tipo': 'SVB'}, {'Nombre': 'B095 Moixent', 'Horario': '24H', 'Longitud': -0.7546556, 'Latitud': 38.87392044, 'Tipo': 'SVB'}, {'Nombre': 'B015 Puerto Sagunto', 'Horario': '24H', 'Longitud': -0.22806287, 'Latitud': 39.6652472, 'Tipo': 'SVB'}, {'Nombre': 'B016 Puçol', 'Horario': '24H', 'Longitud': -0.30842185, 'Latitud': 39.61547613, 'Tipo': 'SVB'}, {'Nombre': 'B017 Estivella', 'Horario': '12H', 'Longitud': -0.34897685, 'Latitud': 39.7142458, 'Tipo': 'SVB'}, {'Nombre': 'B074 Cortes', 'Horario': '12H', 'Longitud': -0.93931338, 'Latitud': 39.24380243, 'Tipo': 'SVB'}, {'Nombre': 'B096 Villanueva Castellon', 'Horario': '12H', 'Longitud': -0.51296327, 'Latitud': 39.08016394, 'Tipo': 'SVB'}];
+const HOSPITALES  = [{'tipo': 'hospital', 'nombre': 'HOSPITAL UNIVERSITARIO DE SAGUNTO', 'longitud': -0.23195744, 'latitud': 39.67486024}, {'tipo': 'hospital', 'nombre': 'H. LA MALVA-ROSA', 'longitud': -0.325407165, 'latitud': 39.47757594}, {'tipo': 'hospital', 'nombre': 'H. CLINICO DE VALENCIA', 'longitud': -0.361891018, 'latitud': 39.47862789}, {'tipo': 'hospital', 'nombre': 'H. DE LLIRIA', 'longitud': -0.61913967, 'latitud': 39.64194417}, {'tipo': 'hospital', 'nombre': 'H. DR. MOLINER', 'longitud': -0.474075519, 'latitud': 39.65620457}, {'tipo': 'hospital', 'nombre': 'HOSPITAL PSIQUIATRICO PROVINCIAL', 'longitud': -0.443906491, 'latitud': 39.57658146}, {'tipo': 'hospital', 'nombre': 'H. ARNAU DE VILANOVA', 'longitud': -0.403586523, 'latitud': 39.49053571}, {'tipo': 'hospital', 'nombre': 'H. GENERAL DE REQUENA', 'longitud': -1.089153249, 'latitud': 39.48845756}, {'tipo': 'hospital', 'nombre': 'C.H.GRAL.UNIV.DE VALENCIA', 'longitud': -0.407577129, 'latitud': 39.46803671}, {'tipo': 'hospital', 'nombre': 'H.UNIVERSIT. DOCTOR PESET', 'longitud': -0.39422035, 'latitud': 39.45359945}, {'tipo': 'hospital', 'nombre': 'H. UNIV. I POLITEC. LA FE', 'longitud': -0.37602868, 'latitud': 39.44362291}, {'tipo': 'hospital', 'nombre': 'HOSPITAL PARE JOFRE', 'longitud': -0.393782401, 'latitud': 39.4531378}, {'tipo': 'hospital', 'nombre': 'HOSPITAL UNIVERSITARIO DE LA RIBERA', 'longitud': -0.416978853, 'latitud': 39.16015865}, {'tipo': 'hospital', 'nombre': 'H. FRANCESC DE BORJA', 'longitud': -0.17012715, 'latitud': 38.96280885}, {'tipo': 'hospital', 'nombre': 'HOSPITAL GENERAL DE ONTINYENT', 'longitud': -0.60350776, 'latitud': 38.82000804}, {'tipo': 'hospital', 'nombre': 'H. LLUIS ALCANYIS', 'longitud': -0.50989866, 'latitud': 39.00717258}, {'tipo': 'hospital', 'nombre': 'COMPLEJO SANITARIO MISLATA QUART (ANTIGUO HOSPITAL MILITAR)', 'longitud': -0.427154924, 'latitud': 39.47982273}, {'tipo': 'hospital', 'nombre': 'HOSPITAL DE MANISES', 'longitud': -0.45328259, 'latitud': 39.48550701}];
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTADO FLOTA — 2 ambulancias por sede, rastreamos ocupación
+// ══════════════════════════════════════════════════════════════════════════════
+// flota[nombre] = { u1: 'libre'|'ocupada', u2: 'libre'|'ocupada', despachos:[] }
+const flota = {};
+AMBULANCIAS.forEach(a => {
+  flota[a.Nombre] = { u1: 'libre', u2: 'libre', despachos: [] };
+});
+function unidadesLibres(nombre) {
+  const f = flota[nombre];
+  return (f.u1==='libre'?1:0) + (f.u2==='libre'?1:0);
+}
+function toggleNodisponible(nombre, slot) {
+  const f = flota[nombre];
+  if (f[slot] === 'libre') {
+    f[slot] = 'nodisponible';
+    logMsg(`${nombre} ${slot.toUpperCase()} → No disponible`, 'warn');
+  } else if (f[slot] === 'nodisponible') {
+    f[slot] = 'libre';
+    logMsg(`${nombre} ${slot.toUpperCase()} → Libre`, 'ok');
+  }
+  actualizarBadge();
+  guardarEstado();
+  abrirFlota();
+}
+function ocuparUnidad(nombre, destLabel, tiempoMin, extraId) {
+  // Si extraId viene informado, es una unidad extra
+  if (extraId !== undefined) {
+    const arr = unidadesExtra[nombre];
+    if (!arr) return false;
+    const u = arr.find(x => x.id === extraId && x.estado === 'libre');
+    if (!u) return false;
+    u.estado = 'ocupada';
+    u.dest = destLabel;
+    u.eta = new Date(Date.now() + tiempoMin * 60000);
+    actualizarBadge();
+    return true;
+  }
+  // Unidad normal
+  const f = flota[nombre];
+  const slot = f.u1==='libre' ? 'u1' : (f.u2==='libre' ? 'u2' : null); // nodisponible no se ocupa
+  if (!slot) return false;
+  f[slot] = 'ocupada';
+  const eta = new Date(Date.now() + tiempoMin * 60000);
+  f.despachos.push({ slot, dest: destLabel, eta });
+  // Liberar automáticamente tras el tiempo estimado de trayecto
+  setTimeout(() => {
+    f[slot] = 'libre';
+    f.despachos = f.despachos.filter(d => d.slot !== slot);
+    actualizarBadge();
+    if (!document.getElementById('modalFlota').classList.contains('hidden')) abrirFlota();
+  }, tiempoMin * 60000);
+  actualizarBadge();
+  return true;
+}
+function actualizarBadge() {
+  const total = AMBULANCIAS.length * 2;
+  const ocupadas = Object.values(flota).reduce((acc,f) => acc + (f.u1==='ocupada'?1:0) + (f.u2==='ocupada'?1:0), 0);
+  const nodisponibles = Object.values(flota).reduce((acc,f) => acc + (f.u1==='nodisponible'?1:0) + (f.u2==='nodisponible'?1:0), 0);
+  const libres = total - ocupadas - nodisponibles;
+  document.getElementById('flotaBadge').textContent = libres;
+  document.getElementById('flotaBadge').style.background = libres < 10 ? '#FF9800' : '#00E676';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UNIDADES EXTRA (refuerzos añadidos manualmente por base)
+// ══════════════════════════════════════════════════════════════════════════════
+// unidadesExtra[baseNombre] = [ { id, nombre, estado, dest, eta } ]
+const unidadesExtra = {};
+let _extraIdCounter = 1;
+
+function abrirAddUnit(baseNombre) {
+  document.getElementById('addUnitBase').value = baseNombre;
+  document.getElementById('addUnitNombre').value = '';
+  document.getElementById('addUnitEstado').value = 'libre';
+  document.getElementById('addUnitTieneLiberacion').checked = false;
+  document.getElementById('liberaInputs').classList.add('hidden');
+  document.getElementById('liberaWrap').classList.add('hidden');
+  // Set default time to now + 30min
+  const d = new Date(Date.now() + 30*60000);
+  document.getElementById('addUnitHora').value = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('addUnitDest').value = '';
+  document.getElementById('addUnitEstado').onchange = () => {
+    const estado = document.getElementById('addUnitEstado').value;
+    if (estado === 'ocupada') {
+      document.getElementById('liberaWrap').classList.remove('hidden');
+    } else {
+      document.getElementById('liberaWrap').classList.add('hidden');
+    }
+  };
+  document.getElementById('modalAddUnit').classList.remove('hidden');
+  setTimeout(() => document.getElementById('addUnitNombre').focus(), 80);
+}
+
+function cerrarAddUnit() {
+  document.getElementById('modalAddUnit').classList.add('hidden');
+}
+
+function toggleLiberaInputs() {
+  const cb = document.getElementById('addUnitTieneLiberacion').checked;
+  document.getElementById('liberaInputs').classList.toggle('hidden', !cb);
+}
+
+function confirmarAddUnit() {
+  const base = document.getElementById('addUnitBase').value;
+  const nombre = document.getElementById('addUnitNombre').value.trim();
+  if (!nombre) { document.getElementById('addUnitNombre').focus(); return; }
+  const estado = document.getElementById('addUnitEstado').value;
+  const tieneLiberacion = document.getElementById('addUnitTieneLiberacion').checked;
+  const horaStr = document.getElementById('addUnitHora').value;
+  const dest = document.getElementById('addUnitDest').value.trim() || 'En servicio';
+
+  let eta = null;
+  if (!unidadesExtra[base]) unidadesExtra[base] = [];
+  const nuevaUnidad = { id: _extraIdCounter++, nombre, estado, dest: estado==='ocupada'?dest:'', eta: null };
+  unidadesExtra[base].push(nuevaUnidad);
+
+  if (estado === 'ocupada' && tieneLiberacion && horaStr) {
+    const [hh, mm] = horaStr.split(':').map(Number);
+    const now = new Date();
+    const eta = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0);
+    if (eta < now) eta.setDate(eta.getDate() + 1);
+    nuevaUnidad.eta = eta;
+  }
+
+  logMsg(`Unidad extra añadida: ${nombre} en ${base} [${estado}]`, 'ok');
+  cerrarAddUnit();
+  actualizarBadge();
+  abrirFlota();
+}
+
+function toggleExtraUnit(base, id) {
+  const arr = unidadesExtra[base];
+  if (!arr) return;
+  const u = arr.find(x => x.id === id);
+  if (!u) return;
+  if (u.estado === 'libre') { u.estado = 'nodisponible'; logMsg(`${u.nombre} → No disponible`, 'warn'); }
+  else if (u.estado === 'nodisponible') { u.estado = 'libre'; logMsg(`${u.nombre} → Libre`, 'ok'); }
+  actualizarBadge();
+  abrirFlota();
+}
+
+function eliminarExtraUnit(base, id) {
+  if (!unidadesExtra[base]) return;
+  const u = unidadesExtra[base].find(x => x.id === id);
+  if (u) logMsg(`Unidad extra eliminada: ${u.nombre} de ${base}`, 'info');
+  unidadesExtra[base] = unidadesExtra[base].filter(x => x.id !== id);
+  actualizarBadge();
+  abrirFlota();
+}
+
+// ── Polling cada 10s: liberar extras cuya ETA haya llegado (solo cuando simulador NO activo) ──
+setInterval(() => {
+  if (simActivo) return; // El simulador ya lo gestiona con tiempo simulado
+  const ahora = Date.now();
+  let cambio = false;
+  Object.entries(unidadesExtra).forEach(([base, arr]) => {
+    arr.forEach(u => {
+      if (u.estado === 'ocupada' && u.eta) {
+        const etaMs = u.eta instanceof Date ? u.eta.getTime() : new Date(u.eta).getTime();
+        if (etaMs <= ahora) {
+          u.estado = 'libre'; u.eta = null; u.dest = '';
+          logMsg(`${u.nombre} (${base}) → Libre (ETA cumplida)`, 'ok');
+          cambio = true;
+        }
+      }
+    });
+  });
+  if (cambio) {
+    actualizarBadge();
+    if (!document.getElementById('modalFlota').classList.contains('hidden')) abrirFlota();
+  }
+}, 10000);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════════════════════════
+let map, drawControl, drawnItems;
+// ── Modo de despacho ──
+let modoIMV = false;          // false = urgencia normal | true = IMV/triaje
+let numVictimasNormalVal = 1; // víctimas en modo normal (sin clasificar)
+// ── Contadores de triaje START/SHORT (solo modo IMV) ──
+let victimasRojo    = 0;
+let victimasAmarillo= 0;
+let victimasVerde   = 0;
+let victimasNegro   = 0;
+let carreteras_cortadas = [];
+let destino = null;
+let urgencia = 'grave';
+let rutaAmb = null, rutaHosp = null;
+let rutasAmb = []; // rutas de todas las ambulancias despachadas (multi-víctima)
+let marcadores = []; // solo amb seleccionada + hospital seleccionado + incidente
+let baseMarkerLayer = null; // grupo de todos los markers base (ocultos durante emergencia)
+let autocompleteTimeout = null;
+let autocompleteItems = [];
+let autocompleteActive = -1;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAPA
+// ══════════════════════════════════════════════════════════════════════════════
+function initMap() {
+  map = L.map('map', {zoomControl:true}).setView([39.47,-0.38],10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OSM © CARTO', subdomains:'abcd', maxZoom:19
+  }).addTo(map);
+
+  drawnItems = new L.FeatureGroup().addTo(map);
+  drawControl = new L.Control.Draw({
+    edit:{featureGroup:drawnItems},
+    draw:{
+      polyline:{shapeOptions:{color:'#ff4444',weight:4,dashArray:'8,4'}},
+      polygon:false,circle:false,rectangle:false,marker:false,circlemarker:false
+    }
+  });
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, function(e){
+    drawnItems.addLayer(e.layer);
+    if(e.layerType==='polyline'){
+      const coords = e.layer.getLatLngs().map(ll=>[ll.lng,ll.lat]);
+      carreteras_cortadas.push(coords);
+      document.getElementById('cutsCount').textContent = carreteras_cortadas.length;
+      logMsg(`Corte registrado (${coords.length} pts)`,'warn');
+    }
+  });
+
+  renderBaseMarkers();
+  actualizarBadge();
+}
+
+// Iconos SVG personalizados
+function ambIcon(color='#00E676', size=28) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
+    <rect x="2" y="10" width="22" height="14" rx="3" fill="${color}" opacity="0.95"/>
+    <rect x="24" y="14" width="6" height="8" rx="2" fill="${color}" opacity="0.9"/>
+    <circle cx="8" cy="24" r="3.5" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+    <circle cx="21" cy="24" r="3.5" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+    <rect x="8" y="12" width="2" height="6" rx="1" fill="#fff"/>
+    <rect x="5" y="14" width="8" height="2" rx="1" fill="#fff"/>
+    <rect x="2" y="10" width="8" height="7" rx="2" fill="#fff" opacity="0.2"/>
+  </svg>`;
+  return L.divIcon({className:'',html:`<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.7))">${svg}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+}
+
+function hospIcon(color='#2196F3', size=28) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
+    <rect x="4" y="4" width="24" height="24" rx="4" fill="${color}" opacity="0.9"/>
+    <rect x="13" y="8" width="6" height="16" rx="2" fill="#fff"/>
+    <rect x="8" y="13" width="16" height="6" rx="2" fill="#fff"/>
+  </svg>`;
+  return L.divIcon({className:'',html:`<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.7))">${svg}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+}
+
+function incidenteIcon() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38">
+    <path d="M16 2 C8 2 2 8 2 16 C2 26 16 36 16 36 C16 36 30 26 30 16 C30 8 24 2 16 2Z" fill="#E8001D" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="16" cy="16" r="5" fill="#fff"/>
+  </svg>`;
+  return L.divIcon({className:'',html:`<div style="filter:drop-shadow(0 3px 6px rgba(0,0,0,.8))">${svg}</div>`,iconSize:[32,38],iconAnchor:[16,36]});
+}
+
+function renderBaseMarkers() {
+  baseMarkerLayer = L.layerGroup().addTo(map);
+  AMBULANCIAS.forEach(a => {
+    const libres = unidadesLibres(a.Nombre);
+    const color = libres===2 ? '#00E676' : libres===1 ? '#FF9800' : '#E8001D';
+    L.marker([a.Latitud, a.Longitud], {icon: ambIcon(color,18)})
+      .bindPopup(`<div class="info-popup"><b>🚑 ${a.Nombre}</b>Horario: ${a.Horario}<br>Unidades libres: <b style="color:${color}">${libres}/2</b></div>`)
+      .addTo(baseMarkerLayer);
+  });
+  HOSPITALES.forEach(h => {
+    const color = h.tipo==='hospital' ? '#2196F3' : h.tipo==='centro especialidades' ? '#9C27B0' : '#FF9800';
+    L.marker([h.latitud, h.longitud], {icon: hospIcon(color,16)})
+      .bindPopup(`<div class="info-popup"><b>🏥 ${h.nombre}</b>${h.tipo}</div>`)
+      .addTo(baseMarkerLayer);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function setUrgencia(u) {
+  urgencia = u;
+  guardarEstado();
+}
+
+function setUrgenciaNormal(u) {
+  urgencia = u;
+  // Solo actualizar botones dentro de #normalUrgenciaWrap
+  document.querySelectorAll('#normalUrgenciaWrap .urgency-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`#normalUrgenciaWrap [data-u="${u}"]`);
+  if (btn) btn.classList.add('active');
+  const descs = {
+    leve: 'Leve → Envía <b style="color:var(--verde)">SVB</b> al incidente.',
+    media:'Medio → Envía <b style="color:var(--naranja)">SVB</b> al incidente.',
+    grave:'Grave → Envía <b style="color:#E8001D">SAMU</b> al incidente.'
+  };
+  document.getElementById('urgenciaNormalDesc').innerHTML = descs[u];
+  guardarEstado();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SELECTOR DE MODO — Normal vs IMV
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleModo(esIMV) {
+  modoIMV = esIMV;
+  document.getElementById('btnModoNormal').classList.toggle('activo', !esIMV);
+  document.getElementById('btnModoIMV').classList.toggle('activo', esIMV);
+  document.getElementById('normalUrgenciaWrap').classList.toggle('hidden', esIMV);
+  document.getElementById('imvWrap').classList.toggle('hidden', !esIMV);
+  document.getElementById('modoHeaderLabel').textContent = esIMV ? 'TRIAJE START' : 'URGENCIA NORMAL';
+  guardarEstado();
+}
+
+// ── Modo normal: contador simple ──
+function cambiarVictimasNormal(delta) {
+  numVictimasNormalVal = Math.max(1, Math.min(20, numVictimasNormalVal + delta));
+  document.getElementById('numVictimasNormal').textContent = numVictimasNormalVal;
+  guardarEstado();
+}
+
+// ── Modo IMV: contadores de triaje START/SHORT ──
+const TRIAGE_IDS = { rojo:'tvRojo', amarillo:'tvAmarillo', verde:'tvVerde', negro:'tvNegro' };
+
+function cambiarTriage(color, delta) {
+  if (color === 'rojo')     victimasRojo     = Math.max(0, Math.min(99, victimasRojo     + delta));
+  if (color === 'amarillo') victimasAmarillo = Math.max(0, Math.min(99, victimasAmarillo + delta));
+  if (color === 'verde')    victimasVerde    = Math.max(0, Math.min(99, victimasVerde    + delta));
+  if (color === 'negro')    victimasNegro    = Math.max(0, Math.min(99, victimasNegro    + delta));
+  document.getElementById(TRIAGE_IDS[color]).textContent =
+    color==='rojo'?victimasRojo:color==='amarillo'?victimasAmarillo:color==='verde'?victimasVerde:victimasNegro;
+  actualizarNivelIMV();
+  guardarEstado();
+}
+
+function actualizarNivelIMV() {
+  const total = victimasRojo + victimasAmarillo + victimasVerde + victimasNegro;
+  // Cálculo MANV correcto: SAMU(max4) + SVB_rojos_restantes + ceil(amarillos/2)
+  const samuCount  = Math.min(victimasRojo, 4);
+  const svbCount   = (victimasRojo - samuCount) + Math.ceil(victimasAmarillo / 2);
+  const ambEstimadas = samuCount + svbCount;
+
+  const panel  = document.getElementById('nivelImvPanel');
+  const badge  = document.getElementById('nivelBadge');
+  const infoEl = document.getElementById('infoAmbulancias');
+
+  document.getElementById('tvTotal').textContent = total;
+
+  let clasePanel;
+  if (total === 0)       { clasePanel = 'n0'; badge.textContent = 'SIN DATOS'; }
+  else if (total <= 10)  { clasePanel = 'n1'; badge.textContent = 'NIVEL 1 · IMV'; }
+  else if (total <= 25)  { clasePanel = 'n2'; badge.textContent = 'NIVEL 2 · IMV'; }
+  else                   { clasePanel = 'n3'; badge.textContent = 'NIVEL 3 · CATÁSTROFE'; }
+
+  panel.className = `nivel-imv-panel ${clasePanel}`;
+  badge.className = `nivel-badge ${clasePanel}`;
+
+  // Mostrar desglose real: SAMU para PSA + SVB para noria
+  if (ambEstimadas > 0) {
+    infoEl.innerHTML = `SAMU PSA: <span>${samuCount}</span> · SVB noria: <span>${svbCount}</span>`;
+  } else {
+    infoEl.innerHTML = '';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CSV CORTES — UTM ETRS89 zona 30N (EPSG:25830) → WGS84
+// ══════════════════════════════════════════════════════════════════════════════
+function utm30n_a_wgs84(easting, northing) {
+  // Constantes UTM zona 30N / WGS84
+  const a = 6378137.0, f = 1/298.257223563;
+  const b = a*(1-f), e2 = 1-(b*b)/(a*a), e = Math.sqrt(e2);
+  const k0 = 0.9996, lon0 = -3 * Math.PI/180; // meridiano central zona 30
+  const FE = 500000, FN = 0;
+  const x = easting - FE, y = northing - FN;
+  const M = y/k0;
+  const mu = M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
+  const e1 = (1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const phi1 = mu + (3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
+                  + (21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)
+                  + (151*e1*e1*e1/96)*Math.sin(6*mu);
+  const N1 = a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
+  const T1 = Math.tan(phi1)*Math.tan(phi1);
+  const C1 = e2/(1-e2)*Math.cos(phi1)*Math.cos(phi1);
+  const R1 = a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
+  const D = x/(N1*k0);
+  const lat = phi1 - (N1*Math.tan(phi1)/R1)*(D*D/2
+    -(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24
+    +(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
+  const lon = lon0 + (D-(1+2*T1+C1)*D*D*D/6
+    +(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1);
+  return [lat*180/Math.PI, lon*180/Math.PI];
+}
+
+function parsearPoligonoWKT(wkt) {
+  // Extrae coordenadas de POLYGON ((x y, x y, ...))
+  const match = wkt.match(/POLYGON\s*\(\(([^)]+)\)/i);
+  if (!match) return null;
+  return match[1].trim().split(',').map(pair => {
+    const [e, n] = pair.trim().split(/\s+/).map(Number);
+    const [lat, lon] = utm30n_a_wgs84(e, n);
+    return [lon, lat]; // formato [lon, lat] para ORS/Leaflet
+  });
+}
+
+function cargarCSVCortes(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const lines = ev.target.result.split(/\r?\n/).filter(l => l.trim());
+    let cargados = 0, errores = 0;
+    
+    lines.forEach(line => {
+      try {
+        if (line.toUpperCase().indexOf('POLYGON') === -1) { errores++; return; }
+        
+        // 1. EXTRAER ANILLOS INDIVIDUALES (Evita el efecto "Tela de Araña")
+        // Esta fórmula busca aislar cada grupo de coordenadas eliminando los paréntesis
+        const ringRegex = /\(([^()]+)\)/g;
+        let match;
+        
+        while ((match = ringRegex.exec(line)) !== null) {
+          const ringText = match[1];
+          const puntos = ringText.split(',').map(p => {
+            const parts = p.trim().split(/\s+/);
+            if (parts.length < 2) return null;
+            
+            let e = parseFloat(parts[0]);
+            let n = parseFloat(parts[1]);
+            if (isNaN(e) || isNaN(n)) return null;
+            
+            let lat, lon;
+            
+            // CASO 1: Metros (UTM) -> Detectado en el archivo Semana_marinera
+            if (Math.abs(e) > 1000 || Math.abs(n) > 1000) {
+              if (e > n) { const temp = e; e = n; n = temp; }
+              const coordsWGS = utm30n_a_wgs84(e, n);
+              lat = coordsWGS[0]; 
+              lon = coordsWGS[1];
+            } 
+            // CASO 2: EL ESCUDO ANTI-ÁFRICA -> Ignora los puntos corruptos
+            else if (e > 20 && e < 35 && n > 0 && n < 10) {
+              return null; 
+            }
+            // CASO 3: Grados (WGS84 estándar)
+            else {
+              if (e > 30 && e < 45) { lat = e; lon = n; } 
+              else { lon = e; lat = n; }
+            }
+            
+            return [lon, lat]; // Devolvemos [lon, lat] para el OpenRouteService
+          }).filter(Boolean); // Eliminamos cualquier "null" que haya generado el escudo
+          
+          // Si el polígono tiene al menos 3 puntos válidos, lo dibujamos
+          if (puntos.length >= 3) {
+            carreteras_cortadas.push(puntos); 
+            
+            // Leaflet necesita [lat, lon] para pintar en pantalla
+            const latLngs = puntos.map(([lon, lat]) => [lat, lon]);
+            const poly = L.polygon(latLngs, {
+              color: '#E8001D', weight: 2, opacity: 0.9,
+              fillColor: '#E8001D', fillOpacity: 0.25
+            }).addTo(drawnItems);
+            
+            poly.bindPopup('<div class="info-popup"><b>🚧 Corte CSV</b><br>Calle bloqueada</div>');
+            cargados++;
+          }
+        }
+      } catch(err) { errores++; }
+    });
+    
+    document.getElementById('cutsCount').textContent = carreteras_cortadas.length;
+    if (cargados > 0) {
+      logMsg('CSV: ' + cargados + ' polígono(s) cargado(s)', 'ok');
+      map.fitBounds(drawnItems.getBounds().pad(0.1));
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearCuts() {
+  carreteras_cortadas = [];
+  drawnItems.clearLayers();
+  document.getElementById('cutsCount').textContent = '0';
+  logMsg('Cortes limpiados','info');
+}
+
+function logMsg(msg, type='') {
+  const log = document.getElementById('log');
+  const span = document.createElement('span');
+  span.className = type;
+  span.textContent = `\n> ${msg}`;
+  log.appendChild(span);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showLoading(text='CALCULANDO...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden'); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTOCOMPLETE DE DIRECCIÓN
+// ══════════════════════════════════════════════════════════════════════════════
+function initAutocomplete() {
+  const input = document.getElementById('direccion');
+  const list = document.getElementById('autocompleteList');
+
+  input.addEventListener('input', () => {
+    destino = null;
+    document.getElementById('coordsResult').classList.add('hidden');
+    clearTimeout(autocompleteTimeout);
+    const q = input.value.trim();
+    if (q.length < 3) { list.classList.add('hidden'); return; }
+    autocompleteTimeout = setTimeout(() => buscarSugerencias(q), 350);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key==='ArrowDown') { autocompleteActive = Math.min(autocompleteActive+1, autocompleteItems.length-1); renderAutocomplete(autocompleteItems); e.preventDefault(); }
+    else if (e.key==='ArrowUp') { autocompleteActive = Math.max(autocompleteActive-1, -1); renderAutocomplete(autocompleteItems); e.preventDefault(); }
+    else if (e.key==='Enter') {
+      if (autocompleteActive>=0 && autocompleteItems[autocompleteActive]) {
+        seleccionarSugerencia(autocompleteItems[autocompleteActive]);
+      } else { calcular(); }
+      e.preventDefault();
+    }
+    else if (e.key==='Escape') { list.classList.add('hidden'); }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.autocomplete-wrap')) list.classList.add('hidden');
+  });
+}
+
+async function buscarSugerencias(q) {
+  const list = document.getElementById('autocompleteList');
+  try {
+    const vb = '-1.5,38.0,0.5,41.0';
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q+', Valencia, España')}&format=json&limit=6&viewbox=${vb}&bounded=0&addressdetails=1`;
+    const res = await fetch(url, {headers:{'Accept-Language':'es','User-Agent':'EmergenciasValencia/1.0'}});
+    const data = await res.json();
+    autocompleteItems = data;
+    autocompleteActive = -1;
+    renderAutocomplete(data);
+  } catch(e) { list.classList.add('hidden'); }
+}
+
+function renderAutocomplete(items) {
+  const list = document.getElementById('autocompleteList');
+  if (!items.length) { list.classList.add('hidden'); return; }
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item' + (i===autocompleteActive ? ' active' : '');
+    // Nombre corto: calle + municipio
+    const addr = item.address || {};
+    const road = addr.road || addr.pedestrian || '';
+    const city = addr.city || addr.town || addr.village || addr.municipality || '';
+    const num = addr.house_number ? ` ${addr.house_number}` : '';
+    const label = road ? `<b>${road}${num}</b>${city ? ', '+city : ''}` : item.display_name.split(',').slice(0,3).join(',');
+    div.innerHTML = label;
+    div.addEventListener('click', () => seleccionarSugerencia(item));
+    list.appendChild(div);
+  });
+  list.classList.remove('hidden');
+}
+
+function seleccionarSugerencia(item) {
+  const addr = item.address || {};
+  const road = addr.road || addr.pedestrian || '';
+  const city = addr.city || addr.town || addr.village || addr.municipality || '';
+  const num = addr.house_number ? ` ${addr.house_number}` : '';
+  const label = road ? `${road}${num}${city ? ', '+city : ''}` : item.display_name;
+
+  document.getElementById('direccion').value = label;
+  document.getElementById('autocompleteList').classList.add('hidden');
+  autocompleteActive = -1;
+
+  destino = { lat: parseFloat(item.lat), lon: parseFloat(item.lon), label };
+  const coordEl = document.getElementById('coordsResult');
+  coordEl.textContent = `📍 ${destino.lat.toFixed(5)}, ${destino.lon.toFixed(5)}`;
+  coordEl.classList.remove('hidden');
+  map.setView([destino.lat, destino.lon], 15);
+
+  // Marker incidente
+  marcadores.forEach(m=>map.removeLayer(m));
+  marcadores = [];
+  const mk = L.marker([destino.lat, destino.lon], {icon: incidenteIcon()})
+    .addTo(map).bindPopup(`<div class="info-popup"><b>📍 Incidente</b>${label}</div>`).openPopup();
+  marcadores.push(mk);
+  logMsg(`Dirección: ${label}`, 'ok');
+  guardarEstado();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GEOCODING (fallback manual)
+// ══════════════════════════════════════════════════════════════════════════════
+async function geocodificar() {
+  const addr = document.getElementById('direccion').value.trim();
+  if (!addr) return;
+  destino = null;
+  const gmapsKey = document.getElementById('gmapsKey').dataset.real || document.getElementById('gmapsKey').value.trim();
+  if (gmapsKey && gmapsKey.startsWith('AIza')) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${gmapsKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status==='OK' && data.results.length>0) {
+        const loc = data.results[0].geometry.location;
+        destino = {lat:loc.lat, lon:loc.lng, label:data.results[0].formatted_address};
+      }
+    } catch(e) {}
+  }
+  if (!destino) {
+    try {
+      const vb='-1.5,38.0,0.5,41.0';
+      const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&viewbox=${vb}&bounded=0`;
+      const res=await fetch(url,{headers:{'Accept-Language':'es','User-Agent':'EmergenciasValencia/1.0'}});
+      const data=await res.json();
+      if(data.length>0) destino={lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:data[0].display_name};
+    } catch(e) {}
+  }
+  if (destino) {
+    const coordEl=document.getElementById('coordsResult');
+    coordEl.textContent=`📍 ${destino.lat.toFixed(5)}, ${destino.lon.toFixed(5)}`;
+    coordEl.classList.remove('hidden');
+    map.setView([destino.lat,destino.lon],14);
+    marcadores.forEach(m=>map.removeLayer(m)); marcadores=[];
+    const mk=L.marker([destino.lat,destino.lon],{icon:incidenteIcon()})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>📍 Incidente</b>${addr}</div>`).openPopup();
+    marcadores.push(mk);
+    logMsg(`Destino: ${destino.lat.toFixed(4)},${destino.lon.toFixed(4)}`,'ok');
+  } else {
+    logMsg('No se encontró la dirección','err');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HAVERSINE
+// ══════════════════════════════════════════════════════════════════════════════
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+  const dp=(lat2-lat1)*Math.PI/180,dl=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CACHE DE RUTAS ORS (evita rellamar la misma ruta)
+// ══════════════════════════════════════════════════════════════════════════════
+const routeCache = (() => {
+  try { const s = localStorage.getItem('ors_route_cache'); return s ? JSON.parse(s) : {}; }
+  catch(e) { return {}; }
+})();
+function cacheKey(a, b) {
+  return a[0].toFixed(5)+','+a[1].toFixed(5)+'|'+b[0].toFixed(5)+','+b[1].toFixed(5);
+}
+function saveRouteCache() {
+  try {
+    const keys = Object.keys(routeCache);
+    if (keys.length > 200) keys.slice(0, keys.length-200).forEach(k => delete routeCache[k]);
+    localStorage.setItem('ors_route_cache', JSON.stringify(routeCache));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PERSISTENCIA localStorage
+// ══════════════════════════════════════════════════════════════════════════════
+let _restaurando = false;
+function guardarEstado() {
+  if (_restaurando) return;
+  try {
+    localStorage.setItem('emergencias_estado', JSON.stringify({
+      urgencia, modoIMV, numVictimasNormalVal,
+      victimasRojo, victimasAmarillo, victimasVerde, victimasNegro,
+      flota: JSON.parse(JSON.stringify(flota, (k,v) => v instanceof Date ? v.toISOString() : v))
+    }));
+  } catch(e) {}
+}
+function restaurarEstado() {
+  _restaurando = true;
+  try {
+    const raw = localStorage.getItem('emergencias_estado');
+    if (!raw) return;
+    const estado = JSON.parse(raw);
+    if (estado.urgencia) { urgencia = estado.urgencia; if (!modoIMV) setUrgenciaNormal(estado.urgencia); }
+    // Restaurar modo
+    if (estado.modoIMV !== undefined) toggleModo(estado.modoIMV);
+    if (estado.numVictimasNormalVal !== undefined) {
+      numVictimasNormalVal = estado.numVictimasNormalVal;
+    }
+    // Restaurar contadores de triaje
+    if (estado.victimasRojo    !== undefined) victimasRojo    = estado.victimasRojo;
+    if (estado.victimasAmarillo!== undefined) victimasAmarillo= estado.victimasAmarillo;
+    if (estado.victimasVerde   !== undefined) victimasVerde   = estado.victimasVerde;
+    if (estado.victimasNegro   !== undefined) victimasNegro   = estado.victimasNegro;
+    const mapaCont = {tvRojo:victimasRojo, tvAmarillo:victimasAmarillo, tvVerde:victimasVerde, tvNegro:victimasNegro};
+    Object.entries(mapaCont).forEach(([id,val]) => document.getElementById(id).textContent = val);
+    actualizarNivelIMV();
+    if (estado.flota) {
+      const ahora = Date.now();
+      Object.keys(estado.flota).forEach(nombre => {
+        if (!flota[nombre]) return;
+        flota[nombre].u1 = estado.flota[nombre].u1;
+        flota[nombre].u2 = estado.flota[nombre].u2;
+        (estado.flota[nombre].despachos||[]).forEach(d => {
+          const eta = new Date(d.eta); const ms = eta - ahora;
+          if (ms > 0) {
+            flota[nombre].despachos.push({slot:d.slot, dest:d.dest, eta});
+            setTimeout(() => {
+              flota[nombre][d.slot]='libre';
+              flota[nombre].despachos=flota[nombre].despachos.filter(x=>x.slot!==d.slot);
+              actualizarBadge();
+            }, ms);
+          } else { flota[nombre][d.slot] = 'libre'; }
+        });
+      });
+      actualizarBadge();
+    }
+    logMsg('Estado restaurado', 'info');
+  } catch(e) {}
+  finally { _restaurando = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ORS ROUTING
+// ══════════════════════════════════════════════════════════════════════════════
+async function calcularRutaORS(origen, dst, _ignorado) {
+  // Generar corredor dinámico específico para este trayecto
+  const avoidPolygons = buildAvoidPolygons(origen, dst);
+
+  // Usar cache solo si no hay cortes activos
+  const usarCache = !avoidPolygons;
+  if (usarCache) {
+    const key = cacheKey(origen, dst);
+    if (routeCache[key]) { return routeCache[key]; }
+  }
+
+  const orsKey = document.getElementById('orsKey').dataset.real || document.getElementById('orsKey').value.trim();
+  const body = {coordinates:[origen,dst], profile:'driving-car', format:'geojson', geometry:true};
+  if (avoidPolygons?.coordinates?.length>0) body.options={avoid_polygons:avoidPolygons};
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':orsKey},
+      body:JSON.stringify(body),
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`ORS ${res.status}`);
+    const data = await res.json();
+    if (usarCache) { routeCache[cacheKey(origen,dst)] = data; saveRouteCache(); }
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ── Simplificación Ramer-Douglas-Peucker ──
+function rdp(points, epsilon) {
+  if (points.length < 3) return points;
+  let maxDist = 0, idx = 0;
+  const [x1,y1] = points[0], [x2,y2] = points[points.length-1];
+  const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+  for (let i = 1; i < points.length-1; i++) {
+    const [px,py] = points[i];
+    const d = Math.abs(dy*px - dx*py + x2*y1 - y2*x1) / len;
+    if (d > maxDist) { maxDist = d; idx = i; }
+  }
+  if (maxDist > epsilon) {
+    const l = rdp(points.slice(0, idx+1), epsilon);
+    const r = rdp(points.slice(idx), epsilon);
+    return [...l.slice(0,-1), ...r];
+  }
+  return [points[0], points[points.length-1]];
+}
+
+// ── Distancia punto a segmento (en grados) ──
+function distPuntoSegmento(px, py, x1, y1, x2, y2) {
+  const dx = x2-x1, dy = y2-y1;
+  if (dx===0 && dy===0) return Math.sqrt((px-x1)**2+(py-y1)**2);
+  const t = Math.max(0, Math.min(1, ((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy)));
+  return Math.sqrt((px-(x1+t*dx))**2+(py-(y1+t*dy))**2);
+}
+
+function buildAvoidPolygons(origen, dst) {
+  if (!carreteras_cortadas.length) return null;
+
+  // Corredor origen→destino para ordenar por proximidad
+  const ox = origen ? origen[0] : (dst ? dst[0] : null);
+  const oy = origen ? origen[1] : (dst ? dst[1] : null);
+  const dx2 = dst ? dst[0] : ox;
+  const dy2 = dst ? dst[1] : oy;
+
+  const EPSILON = 0.0002; // Simplificación RDP ~22m
+  const MAX_POINTS = 4000; // Límite ORS
+
+  const allPolys = [];
+  let totalPoints = 0;
+
+  // Ordenar por distancia al corredor (los más cercanos primero)
+  const conDist = carreteras_cortadas.map(coords => {
+    if (coords.length < 2) return null;
+    const [cLon, cLat] = coords[Math.floor(coords.length/2)];
+    const dist = ox !== null
+      ? distPuntoSegmento(cLon, cLat, ox, oy, dx2, dy2)
+      : 0;
+    return { coords, dist };
+  }).filter(Boolean);
+
+  conDist.sort((a, b) => a.dist - b.dist);
+
+  for (const { coords } of conDist) {
+    if (totalPoints >= MAX_POINTS) break;
+
+    // Tolerancia para comparar primer y último punto (evita error por decimales)
+    const TOL = 1e-8;
+    const esPoly = coords.length >= 4 &&
+      Math.abs(coords[0][0] - coords[coords.length-1][0]) < TOL &&
+      Math.abs(coords[0][1] - coords[coords.length-1][1]) < TOL;
+
+    if (esPoly) {
+      // Simplificar con RDP antes de enviar
+      const simplified = rdp(coords, EPSILON);
+      if (simplified.length < 4) continue;
+      if (totalPoints + simplified.length > MAX_POINTS) break;
+      allPolys.push([simplified.map(([lon,lat]) => [lon,lat])]);
+      totalPoints += simplified.length;
+    } else {
+      // Polilínea dibujada: franja continua ~80m
+      const BUF = 0.0008;
+      const left = [], right = [];
+      for (let i = 0; i < coords.length; i++) {
+        const [lon, lat] = coords[i];
+        let ddx = 0, ddy = 0;
+        if (i < coords.length - 1) { ddx += coords[i+1][0]-lon; ddy += coords[i+1][1]-lat; }
+        if (i > 0) { ddx += lon-coords[i-1][0]; ddy += lat-coords[i-1][1]; }
+        const len = Math.sqrt(ddx*ddx+ddy*ddy) || 1;
+        const px = -ddy/len*BUF, py = ddx/len*BUF;
+        left.push([lon+px, lat+py]);
+        right.push([lon-px, lat-py]);
+      }
+      const ring = [...left, ...[...right].reverse(), left[0]];
+      if (totalPoints + ring.length > MAX_POINTS) break;
+      allPolys.push([ring]);
+      totalPoints += ring.length;
+    }
+  }
+
+  console.log(`[avoid] ${allPolys.length} polígonos, ${totalPoints} puntos enviados a ORS`);
+  return allPolys.length ? {type:'MultiPolygon', coordinates:allPolys} : null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FILTROS
+// ══════════════════════════════════════════════════════════════════════════════
+function filtrarAmbulanciasPorHorario() {
+  const hora = new Date().getHours();
+
+  // Bases base con unidades libres normales
+  const basesBase = AMBULANCIAS.filter(a => {
+    if (a.Horario==='24H') return true;
+    if (hora>=0 && hora<12) return a.Horario==='12H';
+    return a.Horario==='12H N';
+  }).filter(a => unidadesLibres(a.Nombre) > 0);
+
+  // Unidades extra libres → se representan como candidatos virtuales
+  // Tienen la misma lat/lon que su base pero id propio para ocuparlas
+  const extrasLibres = [];
+  Object.entries(unidadesExtra).forEach(([baseNombre, units]) => {
+    const base = AMBULANCIAS.find(a => a.Nombre === baseNombre);
+    if (!base) return;
+    units.filter(u => u.estado === 'libre').forEach(u => {
+      extrasLibres.push({
+        Nombre: baseNombre,
+        Horario: base.Horario,
+        Latitud: base.Latitud,
+        Longitud: base.Longitud,
+        _esExtra: true,
+        _extraId: u.id,
+        _extraNombre: u.nombre
+      });
+    });
+  });
+
+  // Combinar: bases con slots libres + extras libres
+  // Para candidatos, si una base tiene slots base Y extras, aparece una vez por cada unidad disponible
+  // Pero para el algoritmo solo necesitamos candidatos únicos por ubicación con al menos 1 libre
+  // Unimos y deduplicamos por posición pero manteniendo extras separadas
+  return [...basesBase, ...extrasLibres];
+}
+
+function filtrarHospitalesPorUrgencia() {
+  // Siempre se dirige al hospital más cercano
+  return HOSPITALES;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALCULAR — bifurca según modo seleccionado
+// ══════════════════════════════════════════════════════════════════════════════
+async function calcular() {
+  const btn = document.getElementById('btnCalc');
+  btn.disabled = true;
+  try {
+    if (!modoIMV) {
+      await calcularNormal();
+    } else {
+      await calcularIMV();
+    }
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MODO NORMAL — comportamiento original del v8
+// Ambulancia más rápida sin distinción de tipo, hospital más rápido.
+// ──────────────────────────────────────────────────────────────────────────────
+async function calcularNormal() {
+  if (!destino) {
+    const addr = document.getElementById('direccion').value.trim();
+    if (!addr) { logMsg('Escribe una dirección','err'); return; }
+    showLoading('GEOCODIFICANDO...');
+    await geocodificar();
+    if (!destino) { logMsg('No se pudo geocodificar','err'); return; }
+  }
+
+  const unidades = numVictimasNormalVal;
+  showLoading('CALCULANDO RUTAS AMBULANCIA...');
+
+  if (rutaAmb) { map.removeLayer(rutaAmb); rutaAmb=null; }
+  if (rutaHosp) { map.removeLayer(rutaHosp); rutaHosp=null; }
+  rutasAmb.forEach(r => map.removeLayer(r)); rutasAmb = [];
+  marcadores.forEach(m=>map.removeLayer(m)); marcadores=[];
+
+  const mkInc = L.marker([destino.lat,destino.lon],{icon:incidenteIcon()})
+    .addTo(map).bindPopup(`<div class="info-popup"><b>📍 Incidente</b>${destino.label||''}</div>`).openPopup();
+  marcadores.push(mkInc);
+  if (baseMarkerLayer) map.removeLayer(baseMarkerLayer);
+
+  // avoidPolys se calcula dinámicamente en calcularRutaORS por trayecto
+  const ambDisp = filtrarAmbulanciasPorHorario();
+  if (ambDisp.length===0) {
+    logMsg('¡Sin ambulancias disponibles!','err');
+    if (baseMarkerLayer) baseMarkerLayer.addTo(map); return;
+  }
+
+  // Filtrar por tipo según urgencia: grave→SAMU, leve/media→SVB
+  const tipoRequerido = urgencia === 'grave' ? 'SAMU' : 'SVB';
+  const ambFiltradas = ambDisp.filter(a => !a._esExtra ? (a.Tipo === tipoRequerido) : true);
+  const poolCandidatas = ambFiltradas.length > 0 ? ambFiltradas : ambDisp; // fallback si no hay del tipo
+  if (ambFiltradas.length === 0) logMsg(`Sin ${tipoRequerido} disponibles, usando cualquier tipo`,'warn');
+
+  // Top 8 más cercanas del tipo adecuado
+  const candidatas = poolCandidatas
+    .map(a=>({...a, dist:haversine(a.Latitud,a.Longitud,destino.lat,destino.lon)}))
+    .sort((a,b)=>a.dist-b.dist).slice(0,8);
+
+  logMsg(`Candidatas: ${candidatas.length} [${tipoRequerido}] | Urgencia: ${urgencia}`,'info');
+
+  const resultados=[];
+  let mejorAmb=null, menorTiempoAmb=Infinity, mejorRutaAmb=null;
+
+  for (let i=0; i<candidatas.length; i++) {
+    const amb = candidatas[i];
+    if (i>0) await new Promise(r=>setTimeout(r,600));
+    try {
+      const ruta = await calcularRutaORS([amb.Longitud,amb.Latitud],[destino.lon,destino.lat], null);
+      const seg  = ruta.features[0].properties.segments[0];
+      const tiempo = seg.duration/60, dist = seg.distance/1000;
+      const nombre = amb._esExtra ? `${amb._extraNombre} (${amb.Nombre})` : amb.Nombre;
+      resultados.push({nombre, tiempo, dist, obj:amb});
+      if (tiempo<menorTiempoAmb) { menorTiempoAmb=tiempo; mejorAmb=amb; mejorRutaAmb=ruta; }
+      logMsg(`${nombre} [${amb.Tipo||'?'}]: ${tiempo.toFixed(1)}min`,'ok');
+    } catch(e) { logMsg(`${amb._esExtra?amb._extraNombre:amb.Nombre}: sin ruta`,'err'); }
+  }
+
+  const top3amb = [...resultados].sort((a,b)=>a.tiempo-b.tiempo).slice(0,3);
+  const nombreMejor = mejorAmb ? (mejorAmb._esExtra?`${mejorAmb._extraNombre} (${mejorAmb.Nombre})`:mejorAmb.Nombre) : null;
+  renderResultsAmb(top3amb, nombreMejor);
+
+  if (mejorRutaAmb) {
+    const coords = mejorRutaAmb.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+    rutaAmb = L.polyline(coords,{color:'#00E676',weight:5,opacity:.9}).addTo(map);
+    const mkA = L.marker([mejorAmb.Latitud,mejorAmb.Longitud],{icon:ambIcon('#00E676',34)})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>🚑 ${nombreMejor}</b>[${mejorAmb.Tipo||'?'}]<br>Tiempo: <b style="color:#00E676">${menorTiempoAmb.toFixed(1)} min</b></div>`);
+    marcadores.push(mkA);
+  }
+
+  // Hospital — siempre el más rápido
+  showLoading('BUSCANDO HOSPITAL...');
+  const hospDisp   = filtrarHospitalesPorUrgencia();
+  const hospCands  = hospDisp
+    .map(h=>({...h, dist:haversine(h.latitud,h.longitud,destino.lat,destino.lon)}))
+    .sort((a,b)=>a.dist-b.dist).slice(0,5);
+
+  const resHosp=[];
+  let mejorHosp=null, menorTiempoHosp=Infinity, mejorRutaHosp=null;
+
+  for (let i=0; i<hospCands.length; i++) {
+    const h = hospCands[i];
+    await new Promise(r=>setTimeout(r,600));
+    try {
+      const ruta = await calcularRutaORS([destino.lon,destino.lat],[h.longitud,h.latitud], null);
+      const seg  = ruta.features[0].properties.segments[0];
+      const tiempo = seg.duration/60, dist = seg.distance/1000;
+      resHosp.push({nombre:h.nombre,tiempo,dist,tipo:h.tipo,obj:h});
+      if (tiempo<menorTiempoHosp) { menorTiempoHosp=tiempo; mejorHosp=h; mejorRutaHosp=ruta; }
+      logMsg(`${h.nombre}: ${tiempo.toFixed(1)}min`,'ok');
+    } catch(e) { logMsg(`${h.nombre}: sin ruta`,'err'); }
+  }
+
+  renderResultsHosp([...resHosp].sort((a,b)=>a.tiempo-b.tiempo).slice(0,3), mejorHosp?.nombre);
+
+  if (mejorRutaHosp) {
+    const coords = mejorRutaHosp.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+    rutaHosp = L.polyline(coords,{color:'#00B0FF',weight:5,opacity:.85,dashArray:'10,6'}).addTo(map);
+    const color = mejorHosp.tipo==='hospital'?'#2196F3':'#9C27B0';
+    const mkH = L.marker([mejorHosp.latitud,mejorHosp.longitud],{icon:hospIcon(color,34)})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>🏥 ${mejorHosp.nombre}</b>Traslado: <b style="color:#2196F3">${menorTiempoHosp.toFixed(1)} min</b></div>`);
+    marcadores.push(mkH);
+  }
+
+  // Despacho de flota (normal: hasta numVictimasNormalVal unidades, sin distinción de tipo)
+  const MARGEN_ATENCION = 15;
+  let tiempoVuelta = 0;
+  if (mejorAmb && mejorHosp) {
+    try {
+      const rv = await calcularRutaORS([mejorHosp.longitud,mejorHosp.latitud],[mejorAmb.Longitud,mejorAmb.Latitud], null);
+      tiempoVuelta = rv.features[0].properties.segments[0].duration/60;
+      logMsg('Vuelta base: '+tiempoVuelta.toFixed(1)+'min','info');
+    } catch(e) { tiempoVuelta = menorTiempoHosp*0.8; }
+  }
+  const tiempoOcupacion = menorTiempoAmb + menorTiempoHosp + tiempoVuelta + MARGEN_ATENCION;
+  const COLORES = ['#FFD600','#FF9800','#FF6B35','#EF5350','#AB47BC','#7E57C2'];
+  let despachadas = 0;
+
+  if (mejorAmb) {
+    mejorAmb._esExtra
+      ? ocuparUnidad(mejorAmb.Nombre,destino.label||'Incidente',tiempoOcupacion,mejorAmb._extraId)
+      : ocuparUnidad(mejorAmb.Nombre,destino.label||'Incidente',tiempoOcupacion);
+    despachadas++;
+  }
+
+  if (despachadas < unidades) {
+    const resto = filtrarAmbulanciasPorHorario()
+      .map(a=>({...a,dist:haversine(a.Latitud,a.Longitud,destino.lat,destino.lon)}))
+      .sort((a,b)=>a.dist-b.dist);
+    for (const ambD of resto) {
+      if (despachadas >= unidades) break;
+      if (ambD._esExtra && mejorAmb._esExtra && ambD._extraId===mejorAmb._extraId) continue;
+      if (!ambD._esExtra && !mejorAmb._esExtra && ambD.Nombre===mejorAmb.Nombre && unidadesLibres(ambD.Nombre)===0) continue;
+      const col = COLORES[(despachadas-1)%COLORES.length];
+      const nomE = ambD._esExtra?`${ambD._extraNombre} (${ambD.Nombre})`:ambD.Nombre;
+      try {
+        showLoading(`RUTA AMB ${despachadas+1}/${unidades}...`);
+        const re = await calcularRutaORS([ambD.Longitud,ambD.Latitud],[destino.lon,destino.lat], null);
+        const te = re.features[0].properties.segments[0].duration/60;
+        const ce = re.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+        rutasAmb.push(L.polyline(ce,{color:col,weight:4,opacity:.82,dashArray:'8,5'}).addTo(map));
+        marcadores.push(L.marker([ambD.Latitud,ambD.Longitud],{icon:ambIcon(col,30)})
+          .addTo(map).bindPopup(`<div class="info-popup"><b>🚑 ${nomE}</b>${te.toFixed(1)} min</div>`));
+        logMsg(`${nomE}: ${te.toFixed(1)}min`,'ok');
+      } catch(e) { logMsg(`${nomE}: sin ruta`,'err'); }
+      if (ambD._esExtra) { ocuparUnidad(ambD.Nombre,destino.label||'Incidente',tiempoOcupacion,ambD._extraId); despachadas++; }
+      else { const s=Math.min(unidadesLibres(ambD.Nombre),unidades-despachadas); for(let i=0;i<s;i++){ocuparUnidad(ambD.Nombre,destino.label||'Incidente',tiempoOcupacion);despachadas++;} }
+    }
+  }
+
+  const total = menorTiempoAmb + menorTiempoHosp;
+  document.getElementById('tiempoTotal').innerHTML=`${total.toFixed(0)} <span>min</span>`;
+  document.getElementById('timeBreakdown').innerHTML=`
+    <div class="time-row"><span class="time-row-label">🚑 Ambulancia al incidente</span><span class="time-row-val" style="color:var(--verde)">${menorTiempoAmb.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">🏥 Traslado al hospital</span><span class="time-row-val" style="color:var(--azul)">${menorTiempoHosp.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">🏠 Vuelta a la base</span><span class="time-row-val" style="color:var(--texto-dim)">${tiempoVuelta.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">⏳ Margen atención</span><span class="time-row-val" style="color:var(--texto-dim)">${MARGEN_ATENCION} min</span></div>`;
+  document.getElementById('panelEmpty').classList.add('hidden');
+  document.getElementById('panelResults').classList.remove('hidden');
+  const pts=[[destino.lat,destino.lon]];
+  if(mejorAmb) pts.push([mejorAmb.Latitud,mejorAmb.Longitud]);
+  if(mejorHosp) pts.push([mejorHosp.latitud,mejorHosp.longitud]);
+  marcadores.forEach(m=>{const ll=m.getLatLng();pts.push([ll.lat,ll.lng]);});
+  map.fitBounds(L.latLngBounds(pts).pad(0.18));
+  logMsg(`✓ TOTAL: ${total.toFixed(0)} min | ${nombreMejor} → ${mejorHosp?.nombre}`,'ok');
+  renderBaseMarkersActualizado();
+  guardarEstado();
+  // Notificar al ciudadano si hay aviso activo
+  if (window._avisoActivoCiudadano && mejorAmb) {
+    notificarCiudadano(window._avisoActivoCiudadano, nombreMejor || mejorAmb.Nombre, menorTiempoAmb);
+    window._avisoActivoCiudadano = null;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MODO IMV — protocolo MANV: SAMU al PSA + SVB noria de evacuación
+// ──────────────────────────────────────────────────────────────────────────────
+async function calcularIMV() {
+  if (!destino) {
+    const addr = document.getElementById('direccion').value.trim();
+    if (!addr) { logMsg('Escribe una dirección','err'); return; }
+    showLoading('GEOCODIFICANDO...');
+    await geocodificar();
+    if (!destino) { logMsg('No se pudo geocodificar','err'); return; }
+  }
+
+  const totalVictimas = victimasRojo + victimasAmarillo + victimasVerde + victimasNegro;
+  if (totalVictimas === 0) { logMsg('Define al menos 1 víctima en el triaje','err'); return; }
+  if (victimasRojo + victimasAmarillo === 0) { logMsg('Sin víctimas Rojas/Amarillas: sin despacho','warn'); return; }
+
+  const samuNecesarias  = Math.min(victimasRojo, 4);
+  const rojosParaSVB    = victimasRojo - samuNecesarias;
+  const svbTransporte   = rojosParaSVB + Math.ceil(victimasAmarillo / 2);
+  const totalNecesarias = samuNecesarias + svbTransporte;
+
+  const ambDisponibles = filtrarAmbulanciasPorHorario();
+  const tope70         = Math.max(1, Math.floor(ambDisponibles.length * 0.7));
+  const unidadesADespachar = Math.min(totalNecesarias, tope70);
+  const segundaOleada  = Math.max(0, totalNecesarias - unidadesADespachar);
+
+  if (totalVictimas > 25) { logMsg('⚠ ALERTA DE CATÁSTROFE: Movilización Masiva requerida','err'); logMsg('Activar Plan de Emergencias Sanitarias nivel 3','err'); }
+  else if (totalVictimas > 10) { logMsg('⚠ Nivel 2 IMV: Montar PMA para pacientes Verdes','warn'); }
+  if (victimasVerde > 0) logMsg(`🟢 ${victimasVerde} Verdes → PMA, sin transporte inmediato`,'info');
+  if (victimasNegro > 0) logMsg(`⚫ ${victimasNegro} fallecidos → notificar Juzgado de Guardia`,'info');
+  logMsg(`── Plan MANV ──────────────────────────────`,'info');
+  logMsg(`🔴 ${victimasRojo} Rojos: ${samuNecesarias} SAMU (PSA) + ${rojosParaSVB} SVB transporte`,'err');
+  logMsg(`🟡 ${victimasAmarillo} Amarillos: ${Math.ceil(victimasAmarillo/2)} SVB (ratio 1:2)`,'warn');
+  logMsg(`Necesarias: ${totalNecesarias} | Libres: ${ambDisponibles.length} | Tope 70%: ${tope70}`,'info');
+  if (segundaOleada > 0) {
+    logMsg(`⚠ ${unidadesADespachar} despachadas ahora. 2ª OLEADA: ${segundaOleada} pendientes`,'warn');
+  }
+
+  showLoading('CALCULANDO RUTAS AMBULANCIA...');
+
+  if (rutaAmb) { map.removeLayer(rutaAmb); rutaAmb=null; }
+  if (rutaHosp) { map.removeLayer(rutaHosp); rutaHosp=null; }
+  rutasAmb.forEach(r => map.removeLayer(r)); rutasAmb = [];
+  marcadores.forEach(m=>map.removeLayer(m)); marcadores=[];
+
+  const mkInc = L.marker([destino.lat,destino.lon],{icon:incidenteIcon()})
+    .addTo(map).bindPopup(`<div class="info-popup"><b>📍 Incidente</b>${destino.label||''}</div>`).openPopup();
+  marcadores.push(mkInc);
+  if (baseMarkerLayer) map.removeLayer(baseMarkerLayer);
+
+  // avoidPolys se calcula dinámicamente en calcularRutaORS por trayecto
+  const ambConDist = ambDisponibles
+    .map(a=>({...a, dist:haversine(a.Latitud,a.Longitud,destino.lat,destino.lon)}))
+    .sort((a,b)=>a.dist-b.dist).slice(0,8);
+
+  const resultados=[];
+  let mejorAmb=null, menorTiempoAmb=Infinity, mejorRutaAmb=null;
+
+  for (let i=0; i<ambConDist.length; i++) {
+    const amb = ambConDist[i];
+    if (i>0) await new Promise(r=>setTimeout(r,600));
+    try {
+      const ruta = await calcularRutaORS([amb.Longitud,amb.Latitud],[destino.lon,destino.lat], null);
+      const seg = ruta.features[0].properties.segments[0];
+      const tiempo = seg.duration/60, dist = seg.distance/1000;
+      const nombre = amb._esExtra?`${amb._extraNombre} (${amb.Nombre})`:amb.Nombre;
+      resultados.push({nombre, tiempo, dist, obj:amb});
+      if (tiempo<menorTiempoAmb) { menorTiempoAmb=tiempo; mejorAmb=amb; mejorRutaAmb=ruta; }
+      logMsg(`${nombre} [${amb.Tipo||'?'}]: ${tiempo.toFixed(1)}min`,'ok');
+    } catch(e) { logMsg(`${amb._esExtra?amb._extraNombre:amb.Nombre}: sin ruta`,'err'); }
+  }
+
+  const top3amb = [...resultados].sort((a,b)=>a.tiempo-b.tiempo).slice(0,3);
+  const nombreMejorVisible = mejorAmb ? (mejorAmb._esExtra?`${mejorAmb._extraNombre} (${mejorAmb.Nombre})`:mejorAmb.Nombre) : null;
+  renderResultsAmb(top3amb, nombreMejorVisible);
+
+  if (mejorRutaAmb) {
+    const coords = mejorRutaAmb.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+    rutaAmb = L.polyline(coords,{color:'#00E676',weight:5,opacity:.9}).addTo(map);
+    const mkA = L.marker([mejorAmb.Latitud,mejorAmb.Longitud],{icon:ambIcon('#00E676',34)})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>🚑 ${nombreMejorVisible}</b>[${mejorAmb.Tipo||'?'}]<br>Tiempo: <b style="color:#00E676">${menorTiempoAmb.toFixed(1)} min</b></div>`);
+    marcadores.push(mkA);
+  }
+
+  // Hospitales — lógica híbrida (dispersión si ≥5 unidades)
+  showLoading('CALCULANDO HOSPITALES...');
+  const hospDisp = filtrarHospitalesPorUrgencia();
+  const IMV_UMBRAL = 5;
+  const esDispersion = unidadesADespachar >= IMV_UMBRAL;
+  const HOSPITALES_GRANDES = new Set(['H. UNIV. I POLITEC. LA FE','C.H.GRAL.UNIV.DE VALENCIA','H. CLINICO DE VALENCIA','H.UNIVERSIT. DOCTOR PESET','H. ARNAU DE VILANOVA','HOSPITAL UNIVERSITARIO DE SAGUNTO','HOSPITAL UNIVERSITARIO DE LA RIBERA','H. LLUIS ALCANYIS','H. FRANCESC DE BORJA']);
+
+  let candidatos;
+  if (!esDispersion) {
+    candidatos = hospDisp.map(h=>({...h,dist:haversine(h.latitud,h.longitud,destino.lat,destino.lon)})).sort((a,b)=>a.dist-b.dist).slice(0,5);
+    logMsg('Hospitales: eligiendo el más rápido','info');
+  } else {
+    const grandes = hospDisp.filter(h=>HOSPITALES_GRANDES.has(h.nombre)).map(h=>({...h,dist:haversine(h.latitud,h.longitud,destino.lat,destino.lon)})).sort((a,b)=>a.dist-b.dist).slice(0,3);
+    const todos   = hospDisp.map(h=>({...h,dist:haversine(h.latitud,h.longitud,destino.lat,destino.lon)})).sort((a,b)=>a.dist-b.dist).slice(0,5);
+    candidatos = [...grandes];
+    for (const h of todos) { if(candidatos.length>=5)break; if(!candidatos.find(x=>x.nombre===h.nombre))candidatos.push(h); }
+    if (candidatos.length===0) candidatos=todos.slice(0,3);
+    logMsg(`Hospitales: dispersión IMV activa (${unidadesADespachar} unidades)`,'warn');
+  }
+
+  const resHosp=[];
+  let mejorHosp=null, menorTiempoHosp=Infinity, mejorRutaHosp=null;
+  const hospCalculados=[];
+
+  for (let i=0; i<candidatos.length; i++) {
+    const h = candidatos[i];
+    await new Promise(r=>setTimeout(r,600));
+    try {
+      const ruta = await calcularRutaORS([destino.lon,destino.lat],[h.longitud,h.latitud], null);
+      const seg = ruta.features[0].properties.segments[0];
+      const tiempo=seg.duration/60, dist=seg.distance/1000;
+      resHosp.push({nombre:h.nombre,tiempo,dist,tipo:h.tipo,obj:h});
+      hospCalculados.push({h,tiempo,dist,ruta});
+      if (tiempo<menorTiempoHosp) { menorTiempoHosp=tiempo; mejorHosp=h; mejorRutaHosp=ruta; }
+      logMsg(`${h.nombre}: ${tiempo.toFixed(1)}min`,'ok');
+    } catch(e) { logMsg(`${h.nombre}: sin ruta`,'err'); }
+  }
+  hospCalculados.sort((a,b)=>a.tiempo-b.tiempo);
+
+  if (esDispersion && hospCalculados.length>=2) {
+    const h0=hospCalculados[0].h.nombre, h1=hospCalculados[1]?.h.nombre||h0, h2=hospCalculados[2]?.h.nombre||h1;
+    if (victimasRojo>0) logMsg(`🔴 ${victimasRojo} ROJO → ${h0}`,'err');
+    if (victimasAmarillo>0) {
+      const mitad=Math.ceil(victimasAmarillo/2);
+      if (hospCalculados.length>=3&&victimasAmarillo>=3) { logMsg(`🟡 ${mitad} AMARILLO → ${h1}`,'warn'); logMsg(`🟡 ${victimasAmarillo-mitad} AMARILLO → ${h2}`,'warn'); }
+      else logMsg(`🟡 ${victimasAmarillo} AMARILLO → ${h1} (descarga ${h0})`,'warn');
+    }
+  }
+
+  renderResultsHosp([...resHosp].sort((a,b)=>a.tiempo-b.tiempo).slice(0,3), mejorHosp?.nombre);
+
+  if (mejorRutaHosp) {
+    const coords = mejorRutaHosp.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+    rutaHosp = L.polyline(coords,{color:'#00B0FF',weight:5,opacity:.85,dashArray:'10,6'}).addTo(map);
+    const color = mejorHosp.tipo==='hospital'?'#2196F3':'#9C27B0';
+    const mkH = L.marker([mejorHosp.latitud,mejorHosp.longitud],{icon:hospIcon(color,34)})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>🏥 ${mejorHosp.nombre}</b>Traslado: <b style="color:#2196F3">${menorTiempoHosp.toFixed(1)} min</b></div>`);
+    marcadores.push(mkH);
+  }
+
+  if (esDispersion && hospCalculados.length>=2 && victimasAmarillo>0) {
+    const h2nd = hospCalculados[1];
+    const c2 = h2nd.ruta.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+    rutasAmb.push(L.polyline(c2,{color:'#FFD600',weight:3,opacity:.65,dashArray:'6,5'}).addTo(map));
+    marcadores.push(L.marker([h2nd.h.latitud,h2nd.h.longitud],{icon:hospIcon('#FFD600',28)})
+      .addTo(map).bindPopup(`<div class="info-popup"><b>🏥 ${h2nd.h.nombre}</b><span style="color:#FFD600">Amarillos: ${h2nd.tiempo.toFixed(1)} min</span></div>`));
+  }
+
+  // Despacho MANV: SAMU primero (PSA), luego SVB (noria)
+  const MARGEN_ATENCION = 15;
+  let tiempoVuelta = 0;
+  if (mejorAmb && mejorHosp) {
+    try {
+      const rv = await calcularRutaORS([mejorHosp.longitud,mejorHosp.latitud],[mejorAmb.Longitud,mejorAmb.Latitud], null);
+      tiempoVuelta = rv.features[0].properties.segments[0].duration/60;
+      logMsg('Vuelta base: '+tiempoVuelta.toFixed(1)+'min','info');
+    } catch(e) { tiempoVuelta=menorTiempoHosp*0.8; }
+  }
+  const tiempoOcupacion = menorTiempoAmb + menorTiempoHosp + tiempoVuelta + MARGEN_ATENCION;
+  const COLORES_RUTAS = ['#FFD600','#FF9800','#FF6B35','#EF5350','#AB47BC','#7E57C2'];
+  let despachadas = 0;
+
+  const todasDisp = filtrarAmbulanciasPorHorario()
+    .map(a=>({...a,dist:haversine(a.Latitud,a.Longitud,destino.lat,destino.lon)})).sort((a,b)=>a.dist-b.dist);
+  const samuDisp = todasDisp.filter(a=>(a.Tipo||'')==='SAMU');
+  const svbDisp  = todasDisp.filter(a=>(a.Tipo||'')==='SVB');
+  const colaDespach = [...samuDisp.slice(0,samuNecesarias), ...svbDisp.slice(0,Math.max(0,unidadesADespachar-Math.min(samuNecesarias,samuDisp.length)))].slice(0,unidadesADespachar);
+
+  if (mejorAmb) {
+    mejorAmb._esExtra ? ocuparUnidad(mejorAmb.Nombre,destino.label||'Incidente',tiempoOcupacion,mejorAmb._extraId) : ocuparUnidad(mejorAmb.Nombre,destino.label||'Incidente',tiempoOcupacion);
+    despachadas++;
+    logMsg(`✓ ${(mejorAmb.Tipo||'?')==='SAMU'?'🔴 PSA':'🚑 Noria'} ${mejorAmb._esExtra?mejorAmb._extraNombre:mejorAmb.Nombre} despachada`,'ok');
+  }
+
+  for (const ambD of colaDespach) {
+    if (despachadas>=unidadesADespachar) break;
+    if (ambD._esExtra&&mejorAmb._esExtra&&ambD._extraId===mejorAmb._extraId) continue;
+    if (!ambD._esExtra&&!mejorAmb._esExtra&&ambD.Nombre===mejorAmb.Nombre&&unidadesLibres(ambD.Nombre)===0) continue;
+    const col=COLORES_RUTAS[(despachadas-1)%COLORES_RUTAS.length];
+    const nomE=ambD._esExtra?`${ambD._extraNombre} (${ambD.Nombre})`:ambD.Nombre;
+    const rol=(ambD.Tipo||'')==='SAMU'?'🔴 PSA':'🚑 Noria';
+    try {
+      showLoading(`RUTA ${ambD.Tipo||'AMB'} ${despachadas+1}/${unidadesADespachar}...`);
+      const re=await calcularRutaORS([ambD.Longitud,ambD.Latitud],[destino.lon,destino.lat], null);
+      const te=re.features[0].properties.segments[0].duration/60;
+      const ce=re.features[0].geometry.coordinates.map(([lo,la])=>[la,lo]);
+      rutasAmb.push(L.polyline(ce,{color:col,weight:4,opacity:.82,dashArray:'8,5'}).addTo(map));
+      marcadores.push(L.marker([ambD.Latitud,ambD.Longitud],{icon:ambIcon(col,30)})
+        .addTo(map).bindPopup(`<div class="info-popup"><b>${(ambD.Tipo||'')==='SAMU'?'🔴':'🚑'} ${nomE}</b><span style="font-size:9px;color:${col}">${rol}</span><br>${te.toFixed(1)} min</div>`));
+      logMsg(`✓ ${rol} ${nomE}: ${te.toFixed(1)}min`,'ok');
+    } catch(e) { logMsg(`${rol} ${nomE}: sin ruta`,'err'); }
+    if (ambD._esExtra) { ocuparUnidad(ambD.Nombre,destino.label||'Incidente',tiempoOcupacion,ambD._extraId); despachadas++; }
+    else { const s=Math.min(unidadesLibres(ambD.Nombre),unidadesADespachar-despachadas); for(let i=0;i<s;i++){ocuparUnidad(ambD.Nombre,destino.label||'Incidente',tiempoOcupacion);despachadas++;} }
+  }
+
+  const samuEnv=colaDespach.filter(a=>(a.Tipo||'')==='SAMU').length;
+  logMsg(`── Resumen MANV ────────────────────────────`,'ok');
+  logMsg(`✓ SAMU PSA: ${samuEnv} | SVB noria: ${despachadas-samuEnv}`,'ok');
+  if (segundaOleada>0) logMsg(`⏳ 2ª OLEADA: ${segundaOleada} unidades pendientes`,'warn');
+  renderBaseMarkersActualizado();
+
+  const total = menorTiempoAmb + menorTiempoHosp;
+  document.getElementById('tiempoTotal').innerHTML=`${total.toFixed(0)} <span>min</span>`;
+  document.getElementById('timeBreakdown').innerHTML=`
+    <div class="time-row"><span class="time-row-label">🚑 Ambulancia al incidente</span><span class="time-row-val" style="color:var(--verde)">${menorTiempoAmb.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">🏥 Traslado al hospital</span><span class="time-row-val" style="color:var(--azul)">${menorTiempoHosp.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">🏠 Vuelta a la base</span><span class="time-row-val" style="color:var(--texto-dim)">${tiempoVuelta.toFixed(1)} min</span></div>
+    <div class="time-row"><span class="time-row-label">⏳ Margen atención</span><span class="time-row-val" style="color:var(--texto-dim)">${MARGEN_ATENCION} min</span></div>`;
+  document.getElementById('panelEmpty').classList.add('hidden');
+  document.getElementById('panelResults').classList.remove('hidden');
+  const pts=[[destino.lat,destino.lon]];
+  if(mejorAmb) pts.push([mejorAmb.Latitud,mejorAmb.Longitud]);
+  if(mejorHosp) pts.push([mejorHosp.latitud,mejorHosp.longitud]);
+  marcadores.forEach(m=>{const ll=m.getLatLng();pts.push([ll.lat,ll.lng]);});
+  map.fitBounds(L.latLngBounds(pts).pad(0.18));
+  logMsg(`✓ TOTAL: ${total.toFixed(0)} min | ${nombreMejorVisible} → ${mejorHosp?.nombre}`,'ok');
+  guardarEstado();
+  if (window._avisoActivoCiudadano && mejorAmb) {
+    notificarCiudadano(window._avisoActivoCiudadano, mejorAmb._esExtra?mejorAmb._extraNombre:mejorAmb.Nombre, menorTiempoAmb);
+    window._avisoActivoCiudadano = null;
+  }
+}
+
+function renderBaseMarkersActualizado() {
+  if (baseMarkerLayer) { map.removeLayer(baseMarkerLayer); baseMarkerLayer = null; }
+  // No re-renderizamos base markers durante emergencia activa para mantener claridad
+}
+
+function resetEmergencia() {
+  if (rutaAmb) { map.removeLayer(rutaAmb); rutaAmb=null; }
+  if (rutaHosp) { map.removeLayer(rutaHosp); rutaHosp=null; }
+  rutasAmb.forEach(r => map.removeLayer(r)); rutasAmb = [];
+  marcadores.forEach(m=>map.removeLayer(m)); marcadores=[];
+  destino=null;
+  // Resetear modo y contadores
+  toggleModo(false);
+  numVictimasNormalVal=1;
+  victimasRojo=0; victimasAmarillo=0; victimasVerde=0; victimasNegro=0;
+  ['tvRojo','tvAmarillo','tvVerde','tvNegro'].forEach(id => document.getElementById(id).textContent='0');
+  actualizarNivelIMV();
+  document.getElementById('direccion').value='';
+  document.getElementById('coordsResult').classList.add('hidden');
+  try { localStorage.removeItem('emergencias_estado'); } catch(e) {}
+  document.getElementById('panelEmpty').classList.remove('hidden');
+  document.getElementById('panelResults').classList.add('hidden');
+  // Restaurar base markers
+  if (!baseMarkerLayer) {
+    baseMarkerLayer = L.layerGroup().addTo(map);
+    AMBULANCIAS.forEach(a => {
+      const libres = unidadesLibres(a.Nombre);
+      const color = libres===2?'#00E676':libres===1?'#FF9800':'#E8001D';
+      L.marker([a.Latitud,a.Longitud],{icon:ambIcon(color,18)})
+        .bindPopup(`<div class="info-popup"><b>🚑 ${a.Nombre}</b>Horario: ${a.Horario}<br>Libres: <b style="color:${color}">${libres}/2</b></div>`)
+        .addTo(baseMarkerLayer);
+    });
+    HOSPITALES.forEach(h => {
+      const color = h.tipo==='hospital'?'#2196F3':h.tipo==='centro especialidades'?'#9C27B0':'#FF9800';
+      L.marker([h.latitud,h.longitud],{icon:hospIcon(color,16)})
+        .bindPopup(`<div class="info-popup"><b>🏥 ${h.nombre}</b>${h.tipo}</div>`)
+        .addTo(baseMarkerLayer);
+    });
+  }
+  map.setView([39.47,-0.38],10);
+  logMsg('Nueva emergencia lista','info');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER RESULTADOS
+// ══════════════════════════════════════════════════════════════════════════════
+function renderResultsAmb(top3, mejor) {
+  const el = document.getElementById('resAmb');
+  el.innerHTML = '';
+  top3.forEach(r => {
+    const isBest = r.nombre===mejor;
+    el.innerHTML += `
+      <div class="result-card ${isBest?'best':''}">
+        <div class="result-info">
+          <div class="result-name">${r.nombre}</div>
+          <div class="result-meta">
+            <span class="${isBest?'highlight':''}">${r.tiempo.toFixed(1)} min</span>
+            <span>${r.dist.toFixed(2)} km</span>
+          </div>
+        </div>
+        ${isBest?'<div class="best-badge">MEJOR</div>':''}
+      </div>`;
+  });
+}
+
+function renderResultsHosp(top3, mejor) {
+  const el = document.getElementById('resHosp');
+  el.innerHTML = '';
+  top3.forEach(r => {
+    const isBest = r.nombre===mejor;
+    el.innerHTML += `
+      <div class="result-card ${isBest?'best':''}">
+        <div class="result-info">
+          <div class="result-name">${r.nombre}</div>
+          <div class="result-meta">
+            <span class="${isBest?'highlight':''}">${r.tiempo.toFixed(1)} min</span>
+            <span>${r.dist.toFixed(2)} km</span>
+          </div>
+        </div>
+        ${isBest?'<div class="best-badge">MEJOR</div>':''}
+      </div>`;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODAL FLOTA
+// ══════════════════════════════════════════════════════════════════════════════
+function abrirFlota() {
+  const total = AMBULANCIAS.length * 2;
+  const ocupadas = Object.values(flota).reduce((acc,f)=>acc+(f.u1==='ocupada'?1:0)+(f.u2==='ocupada'?1:0),0);
+  const nodisponibles = Object.values(flota).reduce((acc,f)=>acc+(f.u1==='nodisponible'?1:0)+(f.u2==='nodisponible'?1:0),0);
+  const libres = total - ocupadas - nodisponibles;
+
+  document.getElementById('statLibres').textContent = libres;
+  document.getElementById('statOcupadas').textContent = ocupadas;
+  document.getElementById('statNodisponibles').textContent = nodisponibles;
+  document.getElementById('statTotal').textContent = total;
+
+  const hora = new Date().getHours();
+  const tbody = document.getElementById('flotaBody');
+  tbody.innerHTML = '';
+
+  AMBULANCIAS.forEach(a => {
+    const f = flota[a.Nombre];
+    const disponible = hora>=0&&hora<12
+      ? (a.Horario==='24H'||a.Horario==='12H')
+      : (a.Horario==='24H'||a.Horario==='12H N');
+
+    const horarioClass = a.Horario==='24H'?'horario-24':a.Horario==='12H N'?'horario-12n':'horario-12';
+    const despachoActivo = f.despachos.length > 0
+      ? f.despachos.map(d => `<span class="dispatch-tag" style="display:block;margin-bottom:3px">${d.dest.substring(0,22)}…</span>`).join('')
+      : '—';
+
+    function slotHtml(slot) {
+      const estado = f[slot];
+      if (estado === 'libre') {
+        return `<td class="amb-disponible amb-disponible-click" title="Click para poner No Disponible" onclick="toggleNodisponible('${a.Nombre}','${slot}')"><span class="amb-status-dot libre"></span>Libre</td>`;
+      } else if (estado === 'nodisponible') {
+        return `<td class="amb-nodisponible" title="Click para volver a Libre" onclick="toggleNodisponible('${a.Nombre}','${slot}')"><span class="amb-status-dot nodisponible"></span>No disponible ✎</td>`;
+      } else {
+        // ocupada
+        const d = f.despachos.find(x => x.slot === slot);
+        let extra = '';
+        if (d && d.eta) {
+          const eta = new Date(d.eta);
+          const hh = String(eta.getHours()).padStart(2,'0');
+          const mm = String(eta.getMinutes()).padStart(2,'0');
+          extra = `<br><span style="font-size:9px;font-weight:400;color:#FF9800;font-family:'Space Mono',monospace;">libera ~${hh}:${mm}</span>`;
+        }
+        return `<td class="amb-ocupada"><span class="amb-status-dot ocupada"></span>Ocupada${extra}</td>`;
+      }
+    }
+
+    const rowStyle = disponible ? '' : 'opacity:.4';
+
+    // Extra units for this base
+    const extras = unidadesExtra[a.Nombre] || [];
+    const extrasHtml = extras.map(u => {
+      let etaStr = '';
+      if (u.eta) {
+        const eta = new Date(u.eta);
+        etaStr = `<br><span style="font-size:9px;font-weight:400;color:#FF9800;font-family:'Space Mono',monospace;">libera ~${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}</span>`;
+      }
+      let estadoHtml = '';
+      if (u.estado === 'libre') {
+        estadoHtml = `<span class="amb-status-dot extra"></span><span style="color:#BB86FC;font-weight:700;cursor:pointer" title="Click: No disponible" onclick="toggleExtraUnit('${a.Nombre}',${u.id})">Libre ✎</span>`;
+      } else if (u.estado === 'nodisponible') {
+        estadoHtml = `<span class="amb-status-dot nodisponible"></span><span style="color:#FFD600;font-weight:700;cursor:pointer" title="Click: volver a Libre" onclick="toggleExtraUnit('${a.Nombre}',${u.id})">No disp. ✎</span>`;
+      } else {
+        estadoHtml = `<span class="amb-status-dot extra-ocupada"></span><span style="color:var(--rojo);font-weight:700">Ocupada${etaStr}</span>`;
+      }
+      return `<tr class="extra-unit-row" style="${rowStyle}">
+        <td style="padding-left:20px;color:#BB86FC;font-size:11px">↳ ${u.nombre}</td>
+        <td><span class="horario-tag" style="background:rgba(187,134,252,.12);color:#BB86FC;border:1px solid rgba(187,134,252,.3);font-family:'Space Mono',monospace;font-size:9px;padding:2px 5px;border-radius:3px">EXTRA</span></td>
+        <td colspan="2">${estadoHtml}</td>
+        <td colspan="2" style="text-align:right"><button onclick="eliminarExtraUnit('${a.Nombre}',${u.id})" style="background:none;border:none;color:var(--texto-dim);cursor:pointer;font-size:11px;padding:2px 5px;border-radius:3px" title="Eliminar unidad extra">🗑</button></td>
+      </tr>`;
+    }).join('');
+
+    tbody.innerHTML += `
+      <tr style="${rowStyle}">
+        <td><b>${a.Nombre}</b></td>
+        <td><span class="horario-tag ${horarioClass}">${a.Horario}</span></td>
+        ${slotHtml('u1')}
+        ${slotHtml('u2')}
+        <td>${despachoActivo}</td>
+        <td style="text-align:center"><button class="btn-add-unit" onclick="abrirAddUnit('${a.Nombre}')">+ AÑADIR</button></td>
+      </tr>${extrasHtml}`;
+  });
+
+  document.getElementById('modalFlota').classList.remove('hidden');
+}
+
+function cerrarFlota() {
+  document.getElementById('modalFlota').classList.add('hidden');
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') { cerrarFlota(); cerrarAddUnit(); } });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SIMULADOR DE TIEMPO
+// ══════════════════════════════════════════════════════════════════════════════
+let simActivo = false;
+let simVelocidad = 10;
+const SIM_VELOCIDADES = [5, 10, 30, 60, 100, 200, 1000, 2000];
+let simVelIdx = 1;
+let simInterval = null;
+let simOffset = 0;
+
+function toggleSimulador() {
+  if (simActivo) { pararSimulador(); } else { arrancarSimulador(); }
+}
+function arrancarSimulador() {
+  simActivo = true;
+  document.getElementById('btnSim').classList.add('activo');
+  document.getElementById('simClock').classList.remove('hidden');
+  logMsg('Simulador activado ×' + simVelocidad, 'warn');
+  simInterval = setInterval(() => {
+    simOffset += (simVelocidad / 10) * 100;
+    actualizarSimulador();
+  }, 100);
+}
+function pararSimulador() {
+  simActivo = false;
+  clearInterval(simInterval); simInterval = null;
+  document.getElementById('btnSim').classList.remove('activo');
+  document.getElementById('simClock').classList.add('hidden');
+  logMsg('Simulador parado', 'info');
+}
+function cambiarVelocidadSim() {
+  simVelIdx = (simVelIdx + 1) % SIM_VELOCIDADES.length;
+  simVelocidad = SIM_VELOCIDADES[simVelIdx];
+  document.getElementById('simBadge').textContent = '×' + simVelocidad;
+  logMsg('Velocidad: ×' + simVelocidad, 'info');
+}
+function actualizarSimulador() {
+  const ahora = Date.now() + simOffset;
+  const d = new Date(ahora);
+  document.getElementById('simClock').textContent =
+    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+  let cambio = false;
+
+  // Liberar ambulancias normales
+  Object.keys(flota).forEach(nombre => {
+    const f = flota[nombre];
+    const antes = f.despachos.length;
+    f.despachos = f.despachos.filter(d => {
+      const eta = d.eta instanceof Date ? d.eta : new Date(d.eta);
+      if (eta <= ahora) { f[d.slot] = 'libre'; cambio = true; return false; }
+      return true;
+    });
+    if (f.despachos.length !== antes) cambio = true;
+  });
+
+  // Liberar unidades EXTRA usando el tiempo simulado (no Date.now() real)
+  Object.entries(unidadesExtra).forEach(([base, arr]) => {
+    arr.forEach(u => {
+      if (u.estado === 'ocupada' && u.eta) {
+        const etaMs = u.eta instanceof Date ? u.eta.getTime() : new Date(u.eta).getTime();
+        if (etaMs <= ahora) {
+          u.estado = 'libre'; u.eta = null; u.dest = '';
+          logMsg(`${u.nombre} (${base}) → Libre (ETA cumplida)`, 'ok');
+          cambio = true;
+        }
+      }
+    });
+  });
+
+  if (cambio) {
+    actualizarBadge(); guardarEstado();
+    if (!document.getElementById('modalFlota').classList.contains('hidden')) abrirFlota();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  initMap();
+  initAutocomplete();
+  // Procesar avisos Firebase que llegaron antes de que la página cargara
+  setTimeout(() => {
+    (window._avisosFirebasePendientes || []).forEach(aviso => {
+      if (window.añadirAvisoFirebase) window.añadirAvisoFirebase(aviso);
+    });
+    window._avisosFirebasePendientes = [];
+  }, 500);
+  actualizarBadge();
+  actualizarNivelIMV();
+  // Restaurar estado ANTES de setUrgencia para que no sobreescriba
+  const _estadoGuardado = (() => { try { return JSON.parse(localStorage.getItem('emergencias_estado')); } catch(e) { return null; } })();
+  if (_estadoGuardado) {
+    restaurarEstado();
+  } else {
+    setUrgenciaNormal('grave');
+  }
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AVISOS CIUDADANOS — Firebase (global) + localStorage (fallback local)
+
+// Función que llama Firebase cuando llega un aviso nuevo
+window.añadirAvisoFirebase = function(aviso) {
+  // Evitar duplicados
+  if (document.getElementById(`aviso-${aviso.id}`)) return;
+  if (avisosConocidos.has(aviso.id)) return;
+  avisosConocidos.add(aviso.id);
+  avisosEnMemoria[aviso.id] = aviso; // guardar en memoria
+
+  const nivelLabel = {grave:'🔴 GRAVE', media:'🟠 MEDIO', leve:'🟢 LEVE', moderada:'🟠 MEDIO'}[aviso.nivel] || aviso.nivel || '⚪ SIN NIVEL';
+  const hora = new Date(aviso.timestamp || Date.now()).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+  const coords = aviso.lat ? `📍 ${Number(aviso.lat).toFixed(4)},${Number(aviso.lon).toFixed(4)}` : '📍 Sin GPS';
+
+  const lista = document.getElementById('avisosList');
+  const sinAvisos = document.getElementById('sinAvisos');
+  if (sinAvisos) sinAvisos.style.display = 'none';
+
+  const badge = document.getElementById('avisosBadge');
+  if (badge) { badge.textContent = parseInt(badge.textContent||'0') + 1; badge.className = 'avisos-badge visible'; }
+
+  const div = document.createElement('div');
+  div.className = 'aviso-item nuevo';
+  div.id = `aviso-${aviso.id}`;
+  div.innerHTML = `
+    <div class="aviso-item-top">
+      <span class="aviso-item-id">AVS-${aviso.id.substring(0,8).toUpperCase()}</span>
+      <span class="aviso-item-hora">${hora}</span>
+    </div>
+    <div class="aviso-item-nivel">
+      <div class="aviso-nivel-dot ${aviso.nivel || 'grave'}"></div>
+      <span style="font-size:10px;font-weight:600;color:var(--texto)">${nivelLabel}</span>
+    </div>
+    <div class="aviso-item-desc">"${aviso.descripcion || ''}"</div>
+    <div class="aviso-item-coords">${coords}</div>
+    <div class="aviso-item-btn">
+      <button class="btn-cargar-aviso" onclick="cargarAviso('${aviso.id}')">GESTIONAR →</button>
+      <button class="btn-descartar-aviso" onclick="descartarAviso('${aviso.id}')">Descartar</button>
+    </div>`;
+
+  const primerItem = lista.querySelector('.aviso-item');
+  if (primerItem) lista.insertBefore(div, primerItem);
+  else lista.appendChild(div);
+
+  try { logMsg(`Nuevo aviso Firebase: AVS-${aviso.id.substring(0,8).toUpperCase()} [${aviso.nivel}]`, 'warn'); } catch(e){}
+};
+// ══════════════════════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'emergencias_avisos';
+const RESPUESTAS_KEY = 'emergencias_respuestas';
+let avisosConocidos = new Set();
+const avisosEnMemoria = {}; // { id: aviso } para acceso rápido desde cargarAviso
+
+function leerAvisosCiudadanos() {
+  try {
+    const avisos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const pendientes = avisos.filter(a => a.estado === 'pendiente');
+    const badge = document.getElementById('avisosBadge');
+    badge.textContent = pendientes.length;
+    badge.className = pendientes.length > 0 ? 'avisos-badge visible' : 'avisos-badge';
+
+    const lista = document.getElementById('avisosList');
+    const sinAvisos = document.getElementById('sinAvisos');
+
+    if (pendientes.length === 0) {
+      sinAvisos.style.display = 'block';
+      // Limpiar items anteriores excepto el mensaje
+      lista.querySelectorAll('.aviso-item').forEach(el => el.remove());
+      return;
+    }
+    sinAvisos.style.display = 'none';
+
+    // Añadir solo los nuevos
+    pendientes.forEach(aviso => {
+      if (avisosConocidos.has(aviso.id)) return;
+      avisosConocidos.add(aviso.id);
+
+      const nivelLabel = {grave:'🔴 GRAVE', media:'🟠 MEDIO', leve:'🟢 LEVE'}[aviso.nivel] || aviso.nivel;
+      const hora = new Date(aviso.timestamp).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+      const coords = aviso.lat ? `📍 ${aviso.lat.toFixed(4)},${aviso.lon.toFixed(4)}` : '📍 Sin GPS';
+
+      const div = document.createElement('div');
+      div.className = 'aviso-item nuevo';
+      div.id = `aviso-${aviso.id}`;
+      div.innerHTML = `
+        <div class="aviso-item-top">
+          <span class="aviso-item-id">AVS-${aviso.id}</span>
+          <span class="aviso-item-hora">${hora}</span>
+        </div>
+        <div class="aviso-item-nivel">
+          <div class="aviso-nivel-dot ${aviso.nivel}"></div>
+          <span style="font-size:10px;font-weight:600;color:var(--texto)">${nivelLabel}</span>
+        </div>
+        <div class="aviso-item-desc">"${aviso.descripcion}"</div>
+        <div class="aviso-item-coords">${coords}</div>
+        <div class="aviso-item-btn">
+          <button class="btn-cargar-aviso" onclick="cargarAviso('${aviso.id}')">GESTIONAR →</button>
+          <button class="btn-descartar-aviso" onclick="descartarAviso('${aviso.id}')">Descartar</button>
+        </div>`;
+
+      // Insertar al principio
+      const primerItem = lista.querySelector('.aviso-item');
+      if (primerItem) lista.insertBefore(div, primerItem);
+      else lista.appendChild(div);
+
+      // Notificación sonora suave
+      try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA').play().catch(()=>{}); } catch(e){}
+      logMsg(`Nuevo aviso ciudadano: AVS-${aviso.id} [${aviso.nivel}]`, 'warn');
+    });
+  } catch(e) {}
+}
+
+function cargarAviso(id) {
+  try {
+    // Buscar en memoria (Firebase) o en localStorage (local)
+    const avisosLS = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const aviso = avisosEnMemoria[id] || avisosLS.find(a => a.id === id);
+    if (!aviso) { logMsg(`Aviso ${id} no encontrado`, 'err'); return; }
+
+    // Rellenar dirección si tiene coords
+    if (aviso.lat && aviso.lon) {
+      destino = { lat: aviso.lat, lon: aviso.lon, label: `Aviso ciudadano AVS-${id}` };
+      const coordEl = document.getElementById('coordsResult');
+      coordEl.textContent = `📍 ${aviso.lat.toFixed(5)}, ${aviso.lon.toFixed(5)} · Ciudadano`;
+      coordEl.classList.remove('hidden');
+      document.getElementById('direccion').value = `Aviso AVS-${id}`;
+      map.setView([aviso.lat, aviso.lon], 15);
+      marcadores.forEach(m=>map.removeLayer(m)); marcadores=[];
+      const mk = L.marker([aviso.lat, aviso.lon], {icon: incidenteIcon()})
+        .addTo(map).bindPopup(`<div class="info-popup"><b>📍 AVS-${id}</b>${aviso.descripcion.substring(0,60)}</div>`).openPopup();
+      marcadores.push(mk);
+    } else {
+      document.getElementById('direccion').value = '';
+      logMsg(`AVS-${id} sin GPS — introduce la dirección manualmente`, 'warn');
+    }
+
+    // Aplicar nivel
+    if (!modoIMV) setUrgenciaNormal(aviso.nivel === 'grave' ? 'grave' : aviso.nivel === 'media' ? 'media' : 'leve');
+
+    logMsg(`Aviso AVS-${id} cargado [${aviso.nivel}]: "${aviso.descripcion.substring(0,50)}..."`, 'ok');
+
+    // Scroll sidebar arriba para ver el mapa y los campos
+    document.querySelector('.sidebar').scrollTo({top: 200, behavior: 'smooth'});
+
+    // Guardar referencia al aviso activo para responder después
+    window._avisoActivoCiudadano = id;
+  } catch(e) {}
+}
+
+function descartarAviso(id) {
+  try {
+    // Marcar como descartado en Firebase si existe
+    if (avisosEnMemoria[id] && window._fbActualizarAviso) {
+      window._fbActualizarAviso(id, { estado: 'descartado' }).catch(e => {});
+    }
+    // Borrar de memoria y UI
+    delete avisosEnMemoria[id];
+    avisosConocidos.delete(id);
+    document.getElementById(`aviso-${id}`)?.remove();
+    // También localStorage por si acaso
+    const avisos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const idx = avisos.findIndex(a => a.id === id);
+    if (idx !== -1) { avisos[idx].estado = 'descartado'; localStorage.setItem(STORAGE_KEY, JSON.stringify(avisos)); }
+    logMsg(`Aviso ${id.substring(0,8).toUpperCase()} descartado`, 'info');
+  } catch(e) {}
+}
+
+function notificarCiudadano(avisoId, ambulancia, eta) {
+  try {
+    // Actualizar en Firebase (global)
+    if (window._fbActualizarAviso) {
+      window._fbActualizarAviso(avisoId, {
+        estado: 'asignado',
+        ambulancia_asignada: ambulancia,
+        eta_minutos: eta
+      }).catch(e => console.warn('Firebase update error:', e));
+    }
+
+    // Fallback localStorage (local)
+    const respuestas = JSON.parse(localStorage.getItem(RESPUESTAS_KEY) || '{}');
+    respuestas[avisoId] = { ambulancia, eta, timestamp: new Date().toISOString() };
+    localStorage.setItem(RESPUESTAS_KEY, JSON.stringify(respuestas));
+    const avisos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const idx = avisos.findIndex(a => a.id === avisoId);
+    if (idx !== -1) { avisos[idx].estado = 'asignado'; localStorage.setItem(STORAGE_KEY, JSON.stringify(avisos)); }
+
+    document.getElementById(`aviso-${avisoId}`)?.remove();
+    avisosConocidos.delete(avisoId);
+    leerAvisosCiudadanos();
+    logMsg(`✓ Ciudadano ${avisoId} notificado: ${ambulancia} en ${eta.toFixed(0)}min`, 'ok');
+  } catch(e) {}
+}
+
+// Polling cada 2 segundos
+// Polling localStorage desactivado — usamos Firebase en tiempo real
+
+</script>
+
+</body>
+</html>

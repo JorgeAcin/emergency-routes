@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Emergències 112 · GVA</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rojo:#E8001D; --rojo-dark:#B50016;
+  --negro:#0C0C0C; --blanco:#F8F6F2;
+  --gris:#1A1A1A; --gris2:#2A2A2A;
+  --texto:#E8E6E2; --texto-dim:#777;
+  --verde:#00D67A; --naranja:#FF8C00; --azul:#0088FF;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--negro);color:var(--texto);min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden}
+
+.bg-grid{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(232,0,29,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(232,0,29,.04) 1px,transparent 1px);background-size:40px 40px;animation:gridMove 20s linear infinite;pointer-events:none}
+@keyframes gridMove{to{background-position:40px 40px}}
+.bg-blob{position:fixed;z-index:0;width:500px;height:500px;background:radial-gradient(circle,rgba(232,0,29,.1) 0%,transparent 70%);border-radius:50%;top:-150px;left:50%;transform:translateX(-50%);animation:blobPulse 8s ease-in-out infinite;pointer-events:none}
+@keyframes blobPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.1)}}
+
+.container{position:relative;z-index:1;max-width:440px;margin:0 auto;padding:0 20px 48px;display:flex;flex-direction:column;min-height:100dvh}
+
+header{padding:24px 0 20px;display:flex;align-items:center;justify-content:space-between}
+.logo-gva{font-family:'Syne',sans-serif;font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--texto-dim)}
+.logo-gva span{color:var(--rojo)}
+.header-live{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--texto-dim)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--verde);animation:livePulse 2s infinite}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(0,214,122,.5)}50%{box-shadow:0 0 0 5px rgba(0,214,122,0)}}
+
+.screen{display:none;flex-direction:column;gap:18px;flex:1;animation:fadeUp .35s ease forwards}
+.screen.active{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+.hero-num{font-family:'Syne',sans-serif;font-size:clamp(88px,26vw,130px);font-weight:800;line-height:1;color:var(--rojo);letter-spacing:-.03em;text-shadow:0 0 60px rgba(232,0,29,.25);margin-bottom:-6px}
+.hero-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;line-height:1.2;color:var(--blanco)}
+.hero-sub{font-size:13px;color:var(--texto-dim);line-height:1.6}
+
+.card{background:var(--gris);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.025) 0%,transparent 60%);pointer-events:none}
+
+.btn-sos{width:100%;background:var(--rojo);border:none;border-radius:12px;color:#fff;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:18px;cursor:pointer;position:relative;overflow:hidden;transition:background .15s,transform .1s}
+.btn-sos:hover{background:var(--rojo-dark)}
+.btn-sos:active{transform:scale(.98)}
+.btn-sos::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1) 0%,transparent 50%)}
+.btn-sec{width:100%;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:var(--texto-dim);font-size:13px;font-weight:500;padding:13px;cursor:pointer;transition:all .2s}
+.dir-input{width:100%;background:var(--gris2);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--texto);font-family:'Inter',sans-serif;font-size:13px;padding:10px 12px;outline:none;transition:border-color .2s;margin-top:8px}
+.dir-input:focus{border-color:rgba(232,0,29,.5)}
+.dir-input::placeholder{color:var(--texto-dim)}
+.gps-ok{border-color:rgba(0,214,122,.3)!important;background:rgba(0,214,122,.05)!important}
+.gps-error{border-color:rgba(232,0,29,.3)!important;background:rgba(232,0,29,.05)!important}
+.btn-sec:hover{border-color:rgba(255,255,255,.25);color:var(--texto)}
+
+/* formulario */
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10px;font-weight:600;color:var(--texto-dim);letter-spacing:.07em;text-transform:uppercase}
+.field input,.field textarea,.field select{background:var(--gris2);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--texto);font-family:'Inter',sans-serif;font-size:13px;padding:10px 12px;outline:none;transition:border-color .2s;width:100%}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:rgba(232,0,29,.5)}
+.field textarea{resize:none;line-height:1.5}
+.field input::placeholder,.field textarea::placeholder{color:var(--texto-dim)}
+
+/* grabación */
+.mic-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 0}
+.mic-btn{width:88px;height:88px;border-radius:50%;background:var(--gris2);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.mic-btn:hover{border-color:var(--rojo)}
+.mic-btn.grabando{border-color:var(--rojo);background:rgba(232,0,29,.12);animation:micPulse 1s ease-in-out infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,0,29,.4)}50%{box-shadow:0 0 0 18px rgba(232,0,29,0)}}
+.mic-btn svg{width:34px;height:34px;stroke:var(--texto-dim);fill:none;stroke-width:1.5;stroke-linecap:round}
+.mic-btn.grabando svg{stroke:var(--rojo)}
+.mic-status{font-size:12px;color:var(--texto-dim);text-align:center;line-height:1.5;min-height:32px}
+.mic-timer{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--rojo);display:none}
+
+/* nivel selector */
+.nivel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nivel-opt{background:var(--gris2);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 6px;text-align:center;cursor:pointer;transition:all .2s}
+.nivel-opt:hover{border-color:#555}
+.nivel-opt.sel-grave{background:rgba(232,0,29,.15);border-color:var(--rojo)}
+.nivel-opt.sel-media{background:rgba(255,140,0,.15);border-color:var(--naranja)}
+.nivel-opt.sel-leve{background:rgba(0,214,122,.15);border-color:var(--verde)}
+.nivel-opt .emoji{font-size:22px;display:block;margin-bottom:4px}
+.nivel-opt .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-dim)}
+.nivel-opt.sel-grave .label{color:var(--rojo)}
+.nivel-opt.sel-media .label{color:var(--naranja)}
+.nivel-opt.sel-leve .label{color:var(--verde)}
+
+/* gps */
+.gps-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(0,136,255,.07);border:1px solid rgba(0,136,255,.2);border-radius:8px;font-size:12px}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:var(--azul);flex-shrink:0;animation:livePulse 2s infinite}
+
+/* tracking */
+.tracking-id{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:var(--blanco);letter-spacing:.06em;text-align:center}
+.tracking-sub{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--texto-dim);text-align:center}
+.step-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.step-item:last-child{border-bottom:none}
+.step-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;background:var(--gris2);border:1px solid rgba(255,255,255,.08);transition:all .4s}
+.step-icon.done{background:rgba(0,214,122,.15);border-color:var(--verde)}
+.step-icon.active{background:rgba(232,0,29,.15);border-color:var(--rojo);animation:stepPulse 1.5s ease-in-out infinite}
+@keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,0,29,.4)}50%{box-shadow:0 0 0 7px rgba(232,0,29,0)}}
+.step-title{font-size:13px;font-weight:500;margin-bottom:2px}
+.step-sub{font-size:11px;color:var(--texto-dim);line-height:1.4}
+
+.eta-box{background:rgba(0,214,122,.1);border:1px solid rgba(0,214,122,.25);border-radius:10px;padding:14px;text-align:center;display:none}
+.eta-num{font-family:'Syne',sans-serif;font-size:44px;font-weight:800;color:var(--verde);line-height:1}
+.eta-label{font-size:11px;color:var(--texto-dim);margin-top:3px}
+
+.aviso-id-small{font-family:'Syne',sans-serif;font-size:11px;color:var(--texto-dim);text-align:center;margin-top:4px}
+</style>
+<!-- Firebase compat (no módulos) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "********",
+  authDomain: "emergencias-9ecc9.firebaseapp.com",
+  projectId: "emergencias-9ecc9",
+  storageBucket: "emergencias-9ecc9.firebasestorage.app",
+  messagingSenderId: "1073193430733",
+  appId: "1:1073193430733:web:62961dcfe8e75bba4c0384"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+window._fbEnviarAviso = async (aviso) => {
+  const docRef = await db.collection("avisos").add(aviso);
+  return docRef.id;
+};
+
+window._fbEscucharRespuesta = (avisoId, callback) => {
+  const unsub = db.collection("avisos").doc(avisoId).onSnapshot(snap => {
+    if (snap.exists) {
+      const data = snap.data();
+      if (data.estado === 'asignado' || data.estado === 'en_camino') {
+        callback(data);
+        unsub();
+      }
+    }
+  });
+};
+
+window._fbListo = true;
+</script>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-blob"></div>
+
+<div class="container">
+  <header>
+    <div class="logo-gva">G<span>V</span>A · Emergències</div>
+    <div class="header-live"><div class="live-dot"></div>112 · En línia</div>
+  </header>
+
+  <!-- PANTALLA INICIO -->
+  <div class="screen active" id="s-inicio">
+    <div>
+      <div class="hero-num">112</div>
+      <div class="hero-title">Reporta una emergencia</div>
+    </div>
+    <div class="hero-sub">Describe lo que está pasando. El equipo de despacho lo recibirá al instante y enviará la ambulancia adecuada.</div>
+
+    <div class="card" id="gps-card">
+      <div style="font-size:10px;color:var(--texto-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Tu ubicación</div>
+      <div class="gps-row" id="gps-row">
+        <div class="gps-dot"></div>
+        <span id="gps-text">Obteniendo ubicación...</span>
+      </div>
+      <div id="dir-manual-wrap" style="display:none;margin-top:10px">
+        <div style="font-size:10px;color:var(--texto-dim);margin-bottom:4px">O escribe la dirección manualmente:</div>
+        <input type="text" class="dir-input" id="dir-manual" placeholder="Ej: Calle Colón 12, Valencia" oninput="validarUbicacion()"/>
+      </div>
+    </div>
+
+    <button class="btn-sos" id="btn-reportar" onclick="irFormulario()" style="opacity:.4;cursor:not-allowed">🚨 Reportar emergencia</button>
+    <div style="font-size:11px;color:var(--texto-dim);text-align:center">Para riesgo vital inmediato llama directamente al <strong style="color:var(--rojo)">112</strong></div>
+  </div>
+
+  <!-- PANTALLA FORMULARIO -->
+  <div class="screen" id="s-formulario">
+    <div>
+      <div style="font-size:11px;color:var(--texto-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Paso 1</div>
+      <div class="hero-title" style="font-size:22px">¿Qué está pasando?</div>
+    </div>
+
+    <!-- Grabación -->
+    <div class="card">
+      <div style="font-size:10px;color:var(--texto-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Graba lo que está pasando</div>
+      <div class="mic-wrap">
+        <div class="mic-btn" id="mic-btn" onclick="toggleGrab()">
+          <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div class="mic-timer" id="mic-timer">0:00</div>
+        <div class="mic-status" id="mic-status">Pulsa el micrófono y describe lo que ocurre</div>
+      </div>
+      <!-- Resultado IA -->
+      <div id="ia-resultado" style="display:none;margin-top:4px;padding:10px 12px;background:rgba(0,0,0,.2);border-radius:8px">
+        <div style="font-size:9px;color:var(--texto-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Clasificado por IA</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span id="ia-nivel-badge" style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px">—</span>
+          <span id="ia-conf" style="font-size:10px;color:var(--texto-dim)"></span>
+        </div>
+        <div id="ia-transcripcion" style="font-size:11px;color:var(--texto-dim);font-style:italic;line-height:1.4"></div>
+      </div>
+    </div>
+
+    <button class="btn-sos" id="btn-enviar" onclick="enviarAviso()" style="display:none">Enviar aviso →</button>
+    <button class="btn-sec" onclick="ir('s-inicio')">← Volver</button>
+  </div>
+
+  <!-- PANTALLA TRACKING -->
+  <div class="screen" id="s-tracking">
+    <div style="padding-top:8px">
+      <div class="tracking-sub">Número de aviso</div>
+      <div class="tracking-id" id="t-id">——</div>
+      <div class="aviso-id-small">Guarda este número por si necesitas consultar el estado</div>
+    </div>
+
+    <div class="card">
+      <div class="step-item">
+        <div class="step-icon done">✓</div>
+        <div>
+          <div class="step-title">Aviso recibido</div>
+          <div class="step-sub">El equipo de despacho ha recibido tu aviso</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-icon active" id="step2-icon">⟳</div>
+        <div>
+          <div class="step-title">Asignando ambulancia</div>
+          <div class="step-sub" id="step2-sub">El operador está gestionando tu caso</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-icon" id="step3-icon">🚑</div>
+        <div>
+          <div class="step-title">En camino</div>
+          <div class="step-sub" id="step3-sub">Pendiente de asignación</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eta-box" id="eta-box">
+      <div class="eta-num" id="eta-num">—</div>
+      <div class="eta-label">minutos estimados de llegada</div>
+    </div>
+
+    <button class="btn-sec" onclick="nuevaEmergencia()">Reportar otra emergencia</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'emergencias_avisos';
+const RESPUESTAS_KEY = 'emergencias_respuestas';
+
+let posicion = null;
+let avisoIdActual = null;
+let pollingInterval = null;
+let mediaRecorder = null, audioChunks = [], grabando = false;
+let timerInterval = null, segundos = 0;
+let nivelDetectado = 'grave';
+let transcripcionFinal = '';
+
+// ── GPS ──
+navigator.geolocation?.getCurrentPosition(
+  pos => {
+    posicion = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    document.getElementById('gps-text').textContent =
+      `${posicion.lat.toFixed(4)}, ${posicion.lon.toFixed(4)} · ±${pos.coords.accuracy.toFixed(0)}m`;
+    document.getElementById('gps-row').classList.add('gps-ok');
+    document.getElementById('dir-manual-wrap').style.display = 'none';
+    validarUbicacion();
+  },
+  () => {
+    document.getElementById('gps-text').textContent = 'GPS no disponible — escribe la dirección';
+    document.getElementById('gps-row').classList.add('gps-error');
+    document.getElementById('dir-manual-wrap').style.display = 'block';
+    validarUbicacion();
+  }
+);
+
+function validarUbicacion() {
+  const tieneGPS = posicion !== null;
+  const dir = document.getElementById('dir-manual').value.trim();
+  const tieneDir = dir.length > 5;
+  const ok = tieneGPS || tieneDir;
+  const btn = document.getElementById('btn-reportar');
+  btn.style.opacity = ok ? '1' : '0.4';
+  btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+}
+
+async function irFormulario() {
+  const tieneGPS = posicion !== null;
+  const dir = document.getElementById('dir-manual').value.trim();
+  if (!tieneGPS && dir.length <= 5) {
+    document.getElementById('dir-manual-wrap').style.display = 'block';
+    document.getElementById('dir-manual').focus();
+    return;
+  }
+  // Si tiene dirección escrita pero no GPS, geocodificar
+  if (!tieneGPS && dir.length > 5) {
+    document.getElementById('gps-text').textContent = 'Geocodificando...';
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dir)}&format=json&limit=1`);
+      const data = await r.json();
+      if (data.length > 0) {
+        posicion = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+        document.getElementById('gps-text').textContent = `📍 ${data[0].display_name.substring(0,40)}...`;
+        document.getElementById('gps-row').classList.remove('gps-error');
+        document.getElementById('gps-row').classList.add('gps-ok');
+      } else {
+        alert('No se encontró esa dirección. Intenta ser más específico.');
+        return;
+      }
+    } catch(e) {
+      alert('Error al buscar la dirección. Comprueba tu conexión.');
+      return;
+    }
+  }
+  ir('s-formulario');
+}
+
+// ── NAVEGACIÓN ──
+function ir(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+
+// ── GRABACIÓN ──
+async function toggleGrab() {
+  if (!grabando) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = []; audioBlob = null;
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => setTimeout(procesarAudio, 200);
+      mediaRecorder.start(100);
+      grabando = true; segundos = 0;
+      document.getElementById('mic-btn').classList.add('grabando');
+      document.getElementById('mic-status').textContent = 'Grabando... pulsa de nuevo para parar';
+      document.getElementById('mic-timer').style.display = 'block';
+      document.getElementById('ia-resultado').style.display = 'none';
+      document.getElementById('btn-enviar').style.display = 'none';
+      timerInterval = setInterval(() => {
+        segundos++;
+        const m = Math.floor(segundos/60), s = segundos%60;
+        document.getElementById('mic-timer').textContent = m+':'+(s<10?'0':'')+s;
+        if (segundos >= 90) pararGrab();
+      }, 1000);
+    } catch(e) {
+      document.getElementById('mic-status').textContent = 'Sin acceso al micrófono';
+    }
+  } else { pararGrab(); }
+}
+
+function pararGrab() {
+  if (!mediaRecorder) return;
+  grabando = false;
+  clearInterval(timerInterval);
+  document.getElementById('mic-btn').classList.remove('grabando');
+  document.getElementById('mic-timer').style.display = 'none';
+  document.getElementById('mic-status').textContent = 'Procesando con IA...';
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+}
+
+async function procesarAudio() {
+  // 1. Enviar audio directamente al backend (Whisper + mBERT de tu amigo)
+  document.getElementById('mic-status').textContent = 'Transcribiendo y clasificando con IA...';
+  try {
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const fd = new FormData();
+    fd.append('audio', blob, 'emergencia.webm');
+    const r = await fetch('https://ncasllo-emergencias-clasificador.hf.space/clasificar', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.ok) {
+      nivelDetectado = data.nivel;
+      transcripcionFinal = data.transcripcion;
+      mostrarResultadoIA(data.nivel, data.confianza, data.transcripcion);
+    } else { throw new Error(data.error); }
+  } catch(e) {
+    // Fallback: transcribir en navegador + heurística
+    document.getElementById('mic-status').textContent = 'Backend no disponible, usando fallback...';
+    const texto = await transcribirAudio();
+    const nivel = clasificarHeuristico(texto || '');
+    nivelDetectado = nivel;
+    transcripcionFinal = texto || '';
+    mostrarResultadoIA(nivel, 0.6, texto || '[No se pudo transcribir]');
+  }
+}
+
+async function transcribirAudio() {
+  return new Promise(resolve => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      // Si no hay SpeechRecognition, pedir al usuario que escriba
+      const texto = prompt('Tu navegador no soporta transcripción automática.\nEscribe aquí lo que ha ocurrido:');
+      resolve(texto || '');
+      return;
+    }
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    const recognition = new SR();
+    recognition.lang = 'es-ES';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = e => resolve(e.results[0][0].transcript);
+    recognition.onerror = () => resolve('');
+    audio.play().catch(() => {});
+    recognition.start();
+    setTimeout(() => { recognition.stop(); }, 12000);
+  });
+}
+
+function clasificarHeuristico(texto) {
+  const t = texto.toLowerCase();
+  if (/no respira|paro|inconscient|sangr|accidente|atropell|infarto|convuls|ahogand|no reacciona|labios azul/.test(t)) return 'grave';
+  if (/fractura|dolor.*(fuerte|intenso)|caída|quemadura|alergia|dificultad.*(respirar|breath)/.test(t)) return 'moderada';
+  return 'leve';
+}
+
+function mostrarResultadoIA(nivel, confianza, transcripcion) {
+  const cfg = {
+    grave: { label:'🔴 GRAVE', bg:'rgba(232,0,29,.2)', color:'#FF6B6B' },
+    media: { label:'🟠 MEDIO', bg:'rgba(255,140,0,.2)', color:'#FFB347' },
+    leve:  { label:'🟢 LEVE',  bg:'rgba(0,214,122,.2)', color:'#00D67A' },
+  }[nivel] || { label:'🔴 GRAVE', bg:'rgba(232,0,29,.2)', color:'#FF6B6B' };
+
+  const badge = document.getElementById('ia-nivel-badge');
+  badge.textContent = cfg.label;
+  badge.style.background = cfg.bg;
+  badge.style.color = cfg.color;
+  document.getElementById('ia-conf').textContent = `Confianza: ${(confianza*100).toFixed(0)}%`;
+  document.getElementById('ia-transcripcion').textContent = `"${transcripcion}"`;
+  document.getElementById('ia-resultado').style.display = 'block';
+  document.getElementById('mic-status').textContent = `Listo · ${segundos}s grabados — pulsa Enviar o graba de nuevo`;
+  document.getElementById('btn-enviar').style.display = 'block';
+}
+
+// ── ENVIAR AVISO ──
+function enviarAviso() {
+  if (!audioChunks.length) {
+    alert('Por favor graba un audio describiendo la emergencia.');
+    return;
+  }
+
+  const aviso = {
+    timestamp: new Date().toISOString(),
+    descripcion: transcripcionFinal || '[Audio grabado]',
+    nivel: nivelDetectado,
+    lat: posicion?.lat || null,
+    lon: posicion?.lon || null,
+    estado: 'pendiente',
+    leido: false
+  };
+
+  document.getElementById('t-id').textContent = '...';
+  ir('s-tracking');
+
+  // Enviar a Firebase
+  window._fbEnviarAviso(aviso).then(fbId => {
+    avisoIdActual = fbId;
+    document.getElementById('t-id').textContent = fbId.substring(0,8).toUpperCase();
+
+    // Escuchar respuesta del operador en tiempo real
+    window._fbEscucharRespuesta(fbId, (data) => {
+      document.getElementById('step2-icon').classList.remove('active');
+      document.getElementById('step2-icon').classList.add('done');
+      document.getElementById('step2-icon').textContent = '✓';
+      document.getElementById('step2-sub').textContent = `Ambulancia ${data.ambulancia_asignada || ''}`;
+      document.getElementById('step3-icon').classList.add('active');
+      document.getElementById('step3-sub').textContent = `En camino a tu ubicación`;
+      if (data.eta_minutos) {
+        document.getElementById('eta-box').style.display = 'block';
+        document.getElementById('eta-num').textContent = Math.round(data.eta_minutos);
+      }
+    });
+  }).catch(e => {
+    console.error('Firebase error:', e);
+    alert('Error al enviar el aviso. Comprueba tu conexión.');
+  });
+}
+
+// Respuesta gestionada por Firebase onSnapshot
+
+function nuevaEmergencia() {
+  clearInterval(pollingInterval);
+  audioChunks = []; transcripcionFinal = ''; grabando = false;
+  nivelDetectado = 'grave';
+  document.getElementById('mic-status').textContent = 'Pulsa el micrófono y describe lo que ocurre';
+  document.getElementById('ia-resultado').style.display = 'none';
+  ir('s-inicio');
+}
+</script>
+</body>
+</html>
